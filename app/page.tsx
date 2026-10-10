@@ -1,15 +1,39 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Heart, ShieldCheck, Truck, Clock, Award, Star, Compass, Sparkles } from "lucide-react";
+import { ArrowRight, Truck, Clock, Award, Star } from "lucide-react";
 import ProductCard, { ProductItem } from "@/components/ProductCard";
-import AtelierRadialBackdrop from "@/components/AtelierRadialBackdrop";
 import { getPublicProductsAction, getPublicTestimonialsAction } from "@/app/admin/actions";
-
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function HomePage() {
+// Skeleton for the Featured Products grid
+function FeaturedProductsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+      {[1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className="rounded-3xl bg-white border border-stone-200/80 overflow-hidden shadow-xs flex flex-col justify-between"
+        >
+          <div className="aspect-[4/5] bg-stone-200/80 w-full" />
+          <div className="p-5 space-y-3">
+            <div className="h-4.5 w-3/4 bg-stone-200/80 rounded-md" />
+            <div className="h-3 w-1/2 bg-stone-100 rounded-md" />
+            <div className="flex items-center justify-between pt-3 border-t border-stone-100">
+              <div className="h-5 w-16 bg-stone-200/80 rounded-md" />
+              <div className="h-7 w-20 bg-stone-100 rounded-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Async component for fetching and rendering featured products
+async function FeaturedProductsSection() {
   let products: ProductItem[] = [];
 
   try {
@@ -31,12 +55,64 @@ export default async function HomePage() {
       }));
     }
   } catch (err) {
-    console.error("Could not load products from database, using curated items:", err);
+    console.error("Could not load products from database:", err);
   }
 
-  // Merge DB products with fallbacks if DB has few items
   const displayProducts = products.length >= 4 ? products.slice(0, 4) : [...products];
 
+  if (displayProducts.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {displayProducts.map((product, idx) => (
+        <ProductCard key={product.id} product={product} priority={idx === 0} />
+      ))}
+    </div>
+  );
+}
+
+// Skeleton for the Testimonials section
+function TestimonialsSkeleton() {
+  return (
+    <section className="py-16 bg-stone-100/60 border-t border-stone-200/80 animate-pulse">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
+          <div className="h-3 w-36 bg-stone-200/80 rounded-md mx-auto" />
+          <div className="h-8 w-64 bg-stone-200/80 rounded-md mx-auto" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="rounded-3xl bg-white p-7 border border-stone-200/70 shadow-xs flex flex-col justify-between min-h-[180px]"
+            >
+              <div className="space-y-3">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <div key={s} className="size-3.5 rounded-full bg-amber-100" />
+                  ))}
+                </div>
+                <div className="h-3.5 w-full bg-stone-100 rounded-md" />
+                <div className="h-3.5 w-5/6 bg-stone-100 rounded-md" />
+                <div className="h-3.5 w-3/4 bg-stone-100 rounded-md" />
+              </div>
+              <div className="mt-6 pt-4 border-t border-stone-100 space-y-1.5">
+                <div className="h-4 w-24 bg-stone-200/80 rounded-md" />
+                <div className="h-3 w-16 bg-stone-100 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Async component for fetching and rendering testimonials
+async function TestimonialsSection() {
   let testimonials: any[] = [];
   try {
     testimonials = await getPublicTestimonialsAction();
@@ -44,15 +120,63 @@ export default async function HomePage() {
     console.error("Could not load testimonials from database:", err);
   }
 
+  if (!testimonials || testimonials.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="py-16 bg-stone-100/60 border-t border-stone-200/80">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <span className="text-xs font-semibold uppercase tracking-widest text-stone-500">
+            Kind Words From Our Patrons
+          </span>
+          <h2 className="font-serif text-3xl sm:text-4xl text-neutral-900 mt-1">
+            Treasured Stories & Celebrations
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {testimonials.map((review) => (
+            <div
+              key={review.id}
+              className="rounded-3xl bg-white p-7 border border-stone-200/70 shadow-xs flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex gap-1 text-amber-500 mb-4">
+                  {[...Array(review.rating || 5)].map((_, s) => (
+                    <Star key={s} size={15} fill="currentColor" />
+                  ))}
+                </div>
+                <p className="text-sm text-neutral-700 italic leading-relaxed">
+                  &ldquo;{review.quote}&rdquo;
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-stone-100">
+                <h4 className="font-serif text-sm font-semibold text-neutral-900">
+                  {review.author}
+                </h4>
+                {review.location && (
+                  <p className="text-xs text-neutral-500">{review.location}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function HomePage() {
   return (
     <main className="min-h-screen bg-stone-50">
-      {/* 1. HERO SECTION */}
+      {/* 1. HERO SECTION (Static & Instant) */}
       <section className="relative overflow-hidden pt-8 pb-16 md:pt-14 md:pb-24 border-b border-stone-200/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             {/* Left Column: Typography & CTAs */}
             <div className="lg:col-span-7 space-y-6">
-
               <h1 className="font-serif text-4xl sm:text-5xl text-neutral-900 leading-[1.12] tracking-tight">
                 Poetic floral expressions, handcrafted for life’s quiet & grand moments.
               </h1>
@@ -69,7 +193,6 @@ export default async function HomePage() {
                   <span>Explore Collections</span>
                   <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
-
               </div>
 
               {/* Badges / Micro Proof */}
@@ -131,7 +254,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. FEATURED CREATIONS CAROUSEL/GRID */}
+      {/* 2. FEATURED CREATIONS CAROUSEL/GRID (Streaming with Skeleton) */}
       <section className="py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
@@ -152,15 +275,13 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {displayProducts.map((product, idx) => (
-              <ProductCard key={product.id} product={product} priority={idx === 0} />
-            ))}
-          </div>
+          <Suspense fallback={<FeaturedProductsSkeleton />}>
+            <FeaturedProductsSection />
+          </Suspense>
         </div>
       </section>
 
-      {/* 3. ATELIER PHILOSOPHY & CRAFTSMANSHIP */}
+      {/* 3. ATELIER PHILOSOPHY & CRAFTSMANSHIP (Static & Instant) */}
       <section className="py-16 bg-white border-y border-stone-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
@@ -220,50 +341,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-
-      {/* 5. CLIENT EXPERIENCES & REVIEWS */}
-      {testimonials.length > 0 && (
-        <section className="py-16 bg-stone-100/60 border-t border-stone-200/80">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <span className="text-xs font-semibold uppercase tracking-widest text-stone-500">
-                Kind Words From Our Patrons
-              </span>
-              <h2 className="font-serif text-3xl sm:text-4xl text-neutral-900 mt-1">
-                Treasured Stories & Celebrations
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {testimonials.map((review) => (
-                <div
-                  key={review.id}
-                  className="rounded-3xl bg-white p-7 border border-stone-200/70 shadow-xs flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex gap-1 text-amber-500 mb-4">
-                      {[...Array(review.rating || 5)].map((_, s) => (
-                        <Star key={s} size={15} fill="currentColor" />
-                      ))}
-                    </div>
-                    <p className="text-sm text-neutral-700 italic leading-relaxed">
-                      &ldquo;{review.quote}&rdquo;
-                    </p>
-                  </div>
-                  <div className="mt-6 pt-4 border-t border-stone-100">
-                    <h4 className="font-serif text-sm font-semibold text-neutral-900">
-                      {review.author}
-                    </h4>
-                    {review.location && (
-                      <p className="text-xs text-neutral-500">{review.location}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* 4. CLIENT EXPERIENCES & REVIEWS (Streaming with Skeleton) */}
+      <Suspense fallback={<TestimonialsSkeleton />}>
+        <TestimonialsSection />
+      </Suspense>
     </main>
   );
 }

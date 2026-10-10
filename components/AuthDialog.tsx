@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { signIn, signUp } from "@/lib/auth-client";
 import { toast } from "sonner";
+import { checkAdminStatusAction } from "@/app/admin/actions";
 
 interface AuthDialogProps {
   isOpen: boolean;
@@ -48,10 +49,20 @@ export default function AuthDialog({
             name,
           },
           {
-            onSuccess: () => {
-              toast.success("Account created successfully! Welcome to Elvara.");
+            onSuccess: async () => {
               setLoading(false);
               onClose();
+              try {
+                const status = await checkAdminStatusAction();
+                if (status?.isAdmin) {
+                  toast.success("Administrator account created! Welcome to Elvara Atelier CMS.");
+                  window.location.href = "/admin";
+                  return;
+                }
+              } catch (err) {
+                console.error("Failed to check admin status:", err);
+              }
+              toast.success("Account created successfully! Welcome to Elvara.");
               window.location.reload();
             },
             onError: (ctx) => {
@@ -67,10 +78,20 @@ export default function AuthDialog({
             password,
           },
           {
-            onSuccess: () => {
-              toast.success("Welcome back to Elvara Florist!");
+            onSuccess: async () => {
               setLoading(false);
               onClose();
+              try {
+                const status = await checkAdminStatusAction();
+                if (status?.isAdmin) {
+                  toast.success(`Welcome back, ${status.user?.name || "Administrator"}!`);
+                  window.location.href = "/admin";
+                  return;
+                }
+              } catch (err) {
+                console.error("Failed to check admin status:", err);
+              }
+              toast.success("Welcome back to Elvara Florist!");
               window.location.reload();
             },
             onError: (ctx) => {

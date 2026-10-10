@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { formatPrice, formatDate, formatViews, getActiveThumbnail } from "@/lib/utils";
-import RelaxingLoader from "@/components/RelaxingLoader";
 import { 
   getShopStatsAction, 
   getProductsAction, 
@@ -81,7 +80,7 @@ export default function AdminPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch metrics stats via REST API
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
       const res = await fetch("/api/admin/stats");
@@ -591,63 +590,83 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* 4 Metrics Cards */}
+        {/* 4 Metrics Cards with Skeleton Effect */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          <div className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs">
-            <div className="flex items-center justify-between text-stone-400 mb-3">
-              <span className="text-xs uppercase font-medium tracking-wider">Total Items</span>
-              <Package size={18} />
-            </div>
-            <span className="font-serif text-3xl font-medium text-neutral-900">
-              {stats?.totalCount ?? 0}
-            </span>
-            <p className="text-[11px] text-neutral-500 mt-1">Active floral products</p>
-          </div>
+          {statsLoading || !stats ? (
+            <>
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs animate-pulse space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="h-3.5 w-24 bg-stone-200/80 rounded-md" />
+                    <div className="size-5 rounded-md bg-stone-200/80" />
+                  </div>
+                  <div className="h-9 w-16 bg-stone-200/80 rounded-lg" />
+                  <div className="h-3 w-32 bg-stone-100 rounded-md" />
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs">
+                <div className="flex items-center justify-between text-stone-400 mb-3">
+                  <span className="text-xs uppercase font-medium tracking-wider">Total Items</span>
+                  <Package size={18} />
+                </div>
+                <span className="font-serif text-3xl font-medium text-neutral-900">
+                  {stats?.totalCount ?? 0}
+                </span>
+                <p className="text-[11px] text-neutral-500 mt-1">Active floral products</p>
+              </div>
 
-          <Link
-            href="/dashboard"
-            className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs hover:border-neutral-300 hover:shadow-sm transition-all group block cursor-pointer"
-          >
-            <div className="flex items-center justify-between text-stone-400 mb-3">
-              <span className="text-xs uppercase font-medium tracking-wider group-hover:text-neutral-900 transition-colors">
-                Paid Orders
-              </span>
-              <ShoppingBag size={18} className="group-hover:text-neutral-900 transition-colors" />
-            </div>
-            <span className="font-serif text-3xl font-medium text-neutral-900">
-              {stats?.paidOrders ?? 0}
-            </span>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-[11px] text-neutral-500">Completed purchases</p>
-              <span className="text-[10px] text-stone-400 group-hover:text-neutral-700 transition-colors font-medium">View &rarr;</span>
-            </div>
-          </Link>
+              <Link
+                href="/dashboard"
+                className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs hover:border-neutral-300 hover:shadow-sm transition-all group block cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-stone-400 mb-3">
+                  <span className="text-xs uppercase font-medium tracking-wider group-hover:text-neutral-900 transition-colors">
+                    Paid Orders
+                  </span>
+                  <ShoppingBag size={18} className="group-hover:text-neutral-900 transition-colors" />
+                </div>
+                <span className="font-serif text-3xl font-medium text-neutral-900">
+                  {stats?.paidOrders ?? 0}
+                </span>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[11px] text-neutral-500">Completed purchases</p>
+                  <span className="text-[10px] text-stone-400 group-hover:text-neutral-700 transition-colors font-medium">View &rarr;</span>
+                </div>
+              </Link>
 
-          <div className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs">
-            <div className="flex items-center justify-between text-stone-400 mb-3">
-              <span className="text-xs uppercase font-medium tracking-wider">
-                New (30 Days)
-              </span>
-              <Calendar size={18} />
-            </div>
-            <span className="font-serif text-3xl font-medium text-neutral-900">
-              {stats?.newMonthlyItems ?? 0}
-            </span>
-            <p className="text-[11px] text-neutral-500 mt-1">Recently created stems</p>
-          </div>
+              <div className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs">
+                <div className="flex items-center justify-between text-stone-400 mb-3">
+                  <span className="text-xs uppercase font-medium tracking-wider">
+                    New (30 Days)
+                  </span>
+                  <Calendar size={18} />
+                </div>
+                <span className="font-serif text-3xl font-medium text-neutral-900">
+                  {stats?.newMonthlyItems ?? 0}
+                </span>
+                <p className="text-[11px] text-neutral-500 mt-1">Recently created stems</p>
+              </div>
 
-          <div className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs">
-            <div className="flex items-center justify-between text-stone-400 mb-3">
-              <span className="text-xs uppercase font-medium tracking-wider">
-                Total Views
-              </span>
-              <Eye size={18} />
-            </div>
-            <span className="font-serif text-3xl font-medium text-neutral-900">
-              {formatViews(stats?.totalViews ?? 0)}
-            </span>
-            <p className="text-[11px] text-neutral-500 mt-1">Client engagement views</p>
-          </div>
+              <div className="rounded-3xl bg-white p-6 border border-stone-200/80 shadow-xs">
+                <div className="flex items-center justify-between text-stone-400 mb-3">
+                  <span className="text-xs uppercase font-medium tracking-wider">
+                    Total Views
+                  </span>
+                  <Eye size={18} />
+                </div>
+                <span className="font-serif text-3xl font-medium text-neutral-900">
+                  {formatViews(stats?.totalViews ?? 0)}
+                </span>
+                <p className="text-[11px] text-neutral-500 mt-1">Client engagement views</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Navigation Tabs between Products, Testimonials, & Settings */}
@@ -718,8 +737,52 @@ export default function AdminPage() {
           </div>
 
           {productsLoading ? (
-            <div className="py-16 flex items-center justify-center">
-              <RelaxingLoader label="Loading offerings catalog..." size={120} />
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-neutral-700">
+                <thead className="bg-stone-50 text-[11px] uppercase tracking-wider text-neutral-500 border-b border-stone-100">
+                  <tr>
+                    <th className="py-3.5 px-6">Product</th>
+                    <th className="py-3.5 px-4">Type</th>
+                    <th className="py-3.5 px-4">Price</th>
+                    <th className="py-3.5 px-4">Views</th>
+                    <th className="py-3.5 px-4">Published</th>
+                    <th className="py-3.5 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="size-12 rounded-xl bg-stone-200 shrink-0" />
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="h-4 w-40 bg-stone-200 rounded-md" />
+                            <div className="h-3 w-28 bg-stone-100 rounded-md" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-5 w-20 bg-stone-100 rounded-full" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-4 w-16 bg-stone-200 rounded-md" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-4 w-12 bg-stone-100 rounded-md" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-3.5 w-20 bg-stone-100 rounded-md" />
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="h-7 w-12 rounded-full bg-stone-100" />
+                          <div className="h-7 w-14 rounded-full bg-stone-100" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : products.length === 0 ? (
             <div className="py-16 text-center text-neutral-500">
@@ -826,8 +889,52 @@ export default function AdminPage() {
             </div>
 
             {testimonialsLoading ? (
-              <div className="py-16 flex items-center justify-center">
-                <RelaxingLoader label="Loading client testimonials..." size={120} />
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-neutral-700">
+                  <thead className="bg-stone-50 text-[11px] uppercase tracking-wider text-neutral-500 border-b border-stone-100">
+                    <tr>
+                      <th className="py-3.5 px-6">Client / Author</th>
+                      <th className="py-3.5 px-4">Rating</th>
+                      <th className="py-3.5 px-4">Quote & Feedback</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4">Order</th>
+                      <th className="py-3.5 px-6 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {[1, 2, 3, 4].map((i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="py-4 px-6">
+                          <div className="h-4 w-32 bg-stone-200 rounded-md mb-1.5" />
+                          <div className="h-3 w-20 bg-stone-100 rounded-md" />
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <div key={s} className="size-3.5 rounded-full bg-amber-100" />
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="h-4 w-64 bg-stone-100 rounded-md mb-1.5" />
+                          <div className="h-3 w-40 bg-stone-100 rounded-md" />
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="h-5 w-20 bg-stone-100 rounded-full" />
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="h-3.5 w-8 bg-stone-100 rounded-md" />
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="h-7 w-12 rounded-full bg-stone-100" />
+                            <div className="h-7 w-14 rounded-full bg-stone-100" />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : testimonials.length === 0 ? (
               <div className="py-16 text-center text-neutral-500">

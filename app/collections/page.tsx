@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, SlidersHorizontal, Loader2, Filter } from "lucide-react";
 import ProductCard, { ProductItem } from "@/components/ProductCard";
 import AtelierRadialBackdrop from "@/components/AtelierRadialBackdrop";
-import RelaxingLoader from "@/components/RelaxingLoader";
 
 const CATEGORIES = [
   { id: "all", label: "All Offerings" },
@@ -173,8 +172,23 @@ export default function CollectionsPage() {
       {/* Product Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {isLoading ? (
-          <div className="py-20 flex items-center justify-center">
-            <RelaxingLoader label="Curating handcrafted creations..." size={150} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div
+                key={i}
+                className="rounded-3xl bg-white border border-stone-200/80 overflow-hidden shadow-xs"
+              >
+                <div className="aspect-[4/5] bg-stone-200/80" />
+                <div className="p-5 space-y-3">
+                  <div className="h-4.5 w-3/4 bg-stone-200/80 rounded-md" />
+                  <div className="h-3 w-1/2 bg-stone-100 rounded-md" />
+                  <div className="flex items-center justify-between pt-3 border-t border-stone-100">
+                    <div className="h-5 w-16 bg-stone-200/80 rounded-md" />
+                    <div className="h-7 w-20 bg-stone-100 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="py-20 text-center rounded-3xl border border-dashed border-stone-300 bg-white/50 p-8 max-w-lg mx-auto">
