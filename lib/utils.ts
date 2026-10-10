@@ -55,13 +55,14 @@ export function getActiveThumbnail(item: {
   return thumb ? getMediaUrl(thumb) : "/images/hero_flower.png";
 }
 
-/** Format price for display ("Free" or "$49.00" / "₹499.00") */
-export function formatPrice(price: string | number | null | undefined, currency = "USD"): string {
+/** Format price for display ("Free" or "₹499.00") */
+export function formatPrice(price: string | number | null | undefined, currency = "INR"): string {
   if (!price || parseFloat(price.toString()) <= 0) return "Free";
   const num = typeof price === "string" ? parseFloat(price) : price;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: currency,
+    maximumFractionDigits: 2,
   }).format(num);
 }
 

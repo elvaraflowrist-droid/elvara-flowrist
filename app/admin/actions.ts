@@ -340,17 +340,24 @@ export async function getShopStatsAction() {
 
 export const getMarketplaceStatsAction = getShopStatsAction;
 
+const DEFAULT_SYSTEM_SETTINGS: Record<string, string> = {
+  delivery_fee: "150.00",
+  gift_price: "100.00",
+  pickup_address: "Elvara Floral Atelier, Road No. 36, Jubilee Hills, Hyderabad 500033",
+  pickup_hours: "Monday – Sunday, 09:00 AM – 08:00 PM",
+};
+
 export async function getSystemSettingsAction() {
   try {
     const settings = await db.select().from(systemSettingsTable);
-    const settingsMap: Record<string, string> = {};
+    const settingsMap: Record<string, string> = { ...DEFAULT_SYSTEM_SETTINGS };
     for (const item of settings) {
       settingsMap[item.key] = item.value;
     }
     return settingsMap;
   } catch (error) {
     console.error("Failed to fetch system settings:", error);
-    return {};
+    return { ...DEFAULT_SYSTEM_SETTINGS };
   }
 }
 
@@ -363,9 +370,31 @@ export async function updateSystemSettingAction(key: string, value: string) {
     .where(eq(systemSettingsTable.key, key));
 
   if (existing.length > 0) {
-    await db.update(systemSettingsTable).set({ value }).where(eq(systemSettingsTable.key, key));
+    await db.update(systemSettingsTable).set({ value, updatedAt: new Date() }).where(eq(systemSettingsTable.key, key));
   } else {
-    await db.insert(systemSettingsTable).values({ key, value });
+    await db.insert(systemSettingsTable).values({ key, value, updatedAt: new Date() });
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+
+  return { success: true };
+}
+
+export async function updateMultipleSystemSettingsAction(settingsObj: Record<string, string>) {
+  await requireAdmin();
+
+  for (const [key, value] of Object.entries(settingsObj)) {
+    const existing = await db
+      .select()
+      .from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, key));
+
+    if (existing.length > 0) {
+      await db.update(systemSettingsTable).set({ value, updatedAt: new Date() }).where(eq(systemSettingsTable.key, key));
+    } else {
+      await db.insert(systemSettingsTable).values({ key, value, updatedAt: new Date() });
+    }
   }
 
   revalidatePath("/");

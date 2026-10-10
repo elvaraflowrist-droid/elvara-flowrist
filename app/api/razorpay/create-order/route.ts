@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { db } from "@/db/drizzle";
-import { ordersTable, productsTable } from "@/db/schema";
+import { ordersTable, productsTable, systemSettingsTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
@@ -30,17 +30,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    const amountInSmallestUnit = product.price ? Math.round(parseFloat(product.price) * 100) : 0;
-
-    if (amountInSmallestUnit <= 0) {
-      return NextResponse.json({ error: "Invalid price for checkout" }, { status: 400 });
-    }
-
     if (!session || !session.user) {
       return NextResponse.json(
         { error: "Please sign in to place a floral order", requiresAuth: true },
         { status: 401 }
       );
+    }
+
+    // Fetch current system settings for delivery and gift fees
+    const settings = await db.select().from(systemSettingsTable);
+    const settingsMap: Record<string, string> = {
+      delivery_fee: "150.00",
+      gift_price: "100.00",
+    };
+    for (const item of settings) {
+      settingsMap[item.key] = item.value;
     }
 
     const {
@@ -51,7 +55,21 @@ export async function POST(req: NextRequest) {
       city,
       postalCode,
       deliveryNotes,
+      fulfillmentType = "delivery",
+      isGift = false,
+      giftCardType = null,
+      giftMessage = null,
     } = body;
+
+    const basePriceNum = product.price ? parseFloat(product.price) : 0;
+    const deliveryFeeNum = fulfillmentType === "pickup" ? 0 : parseFloat(settingsMap["delivery_fee"] || "150.00");
+    const giftFeeNum = isGift ? parseFloat(settingsMap["gift_price"] || "100.00") : 0;
+    const totalAmountNum = basePriceNum + deliveryFeeNum + giftFeeNum;
+    const amountInSmallestUnit = Math.round(totalAmountNum * 100);
+
+    if (amountInSmallestUnit <= 0) {
+      return NextResponse.json({ error: "Invalid price for checkout" }, { status: 400 });
+    }
 
     const isDemoMode =
       !process.env.RAZORPAY_KEY_ID ||
@@ -66,22 +84,28 @@ export async function POST(req: NextRequest) {
         id: demoOrderId,
         userId: session.user.id,
         postId: product.id,
-        amount: product.price || "0",
+        amount: totalAmountNum.toFixed(2),
         status: "created",
         customerName: customerName || session.user.name || null,
         customerEmail: customerEmail || session.user.email || null,
         customerPhone: customerPhone || null,
-        shippingAddress: shippingAddress || null,
-        city: city || null,
+        shippingAddress: fulfillmentType === "pickup" ? "Self Collection / Atelier Pickup" : (shippingAddress || null),
+        city: fulfillmentType === "pickup" ? "Atelier Pickup" : (city || null),
         postalCode: postalCode || null,
         deliveryNotes: deliveryNotes || null,
+        fulfillmentType: fulfillmentType === "pickup" ? "pickup" : "delivery",
+        isGift: Boolean(isGift),
+        giftCardType: isGift ? (giftCardType || "vintage-botanical") : null,
+        giftMessage: isGift ? (giftMessage || null) : null,
+        deliveryFee: deliveryFeeNum.toFixed(2),
+        giftFee: giftFeeNum.toFixed(2),
       });
 
       return NextResponse.json({
         isDemo: true,
         orderId: demoOrderId,
         amount: amountInSmallestUnit,
-        currency: "USD",
+        currency: "INR",
         productTitle: product.title,
       });
     }
@@ -92,7 +116,7 @@ export async function POST(req: NextRequest) {
       key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
 
-    const currency = process.env.RAZORPAY_CURRENCY || "USD";
+    const currency = process.env.RAZORPAY_CURRENCY || "INR";
     const options = {
       amount: amountInSmallestUnit,
       currency,
@@ -106,15 +130,21 @@ export async function POST(req: NextRequest) {
       id: order.id,
       userId: session?.user?.id || null,
       postId: product.id,
-      amount: product.price || "0",
+      amount: totalAmountNum.toFixed(2),
       status: "created",
       customerName: customerName || session.user.name || null,
       customerEmail: customerEmail || session.user.email || null,
       customerPhone: customerPhone || null,
-      shippingAddress: shippingAddress || null,
-      city: city || null,
+      shippingAddress: fulfillmentType === "pickup" ? "Self Collection / Atelier Pickup" : (shippingAddress || null),
+      city: fulfillmentType === "pickup" ? "Atelier Pickup" : (city || null),
       postalCode: postalCode || null,
       deliveryNotes: deliveryNotes || null,
+      fulfillmentType: fulfillmentType === "pickup" ? "pickup" : "delivery",
+      isGift: Boolean(isGift),
+      giftCardType: isGift ? (giftCardType || "vintage-botanical") : null,
+      giftMessage: isGift ? (giftMessage || null) : null,
+      deliveryFee: deliveryFeeNum.toFixed(2),
+      giftFee: giftFeeNum.toFixed(2),
     });
 
     return NextResponse.json({

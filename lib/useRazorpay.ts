@@ -14,6 +14,12 @@ export interface CustomerInfo {
   city?: string;
   postalCode?: string;
   deliveryNotes?: string;
+  fulfillmentType?: "delivery" | "pickup";
+  isGift?: boolean;
+  giftCardType?: string;
+  giftMessage?: string;
+  deliveryFee?: number;
+  giftFee?: number;
 }
 
 interface UseRazorpayOptions {
@@ -87,6 +93,10 @@ export function useRazorpay(options?: UseRazorpayOptions) {
             city: customerInfo?.city,
             postalCode: customerInfo?.postalCode,
             deliveryNotes: customerInfo?.deliveryNotes,
+            fulfillmentType: customerInfo?.fulfillmentType,
+            isGift: customerInfo?.isGift,
+            giftCardType: customerInfo?.giftCardType,
+            giftMessage: customerInfo?.giftMessage,
           }),
         });
 

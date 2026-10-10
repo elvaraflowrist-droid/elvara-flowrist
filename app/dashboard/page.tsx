@@ -23,13 +23,15 @@ import {
   Clock,
   Sparkles,
   Truck,
-  Gift
+  Gift,
+  Store
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useSession } from "@/lib/auth-client";
 import { formatPrice, formatDate, getActiveThumbnail, getInitials } from "@/lib/utils";
 import AuthDialog from "@/components/AuthDialog";
 import RelaxingLoader from "@/components/RelaxingLoader";
+import GiftCardWriter from "@/components/GiftCardWriter";
 import { toast } from "sonner";
 
 interface PurchaseItem {
@@ -54,6 +56,12 @@ interface PurchaseItem {
   deliveryNotes?: string | null;
   accountName?: string | null;
   accountEmail?: string | null;
+  fulfillmentType?: "delivery" | "pickup" | null;
+  isGift?: boolean | null;
+  giftCardType?: string | null;
+  giftMessage?: string | null;
+  deliveryFee?: string | null;
+  giftFee?: string | null;
 }
 
 interface PurchasesApiResponse {
@@ -178,10 +186,29 @@ export default function CustomerDashboardPage() {
                     >
                       {purchase.title}
                     </Link>
+                    {purchase.fulfillmentType === "pickup" ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200/80 shrink-0">
+                        <Store size={10} />
+                        <span>Self Collection</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200 shrink-0">
+                        <Truck size={10} />
+                        <span>Courier Delivery</span>
+                      </span>
+                    )}
+
+                    {purchase.isGift && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
+                        <Gift size={10} />
+                        <span>Gift Wrapped + Cute Bag</span>
+                      </span>
+                    )}
+
                     {userIsAdmin && adminViewMode === "all" && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                        <Truck size={10} />
-                        <span>Ready to Deliver</span>
+                        <CheckCircle2 size={10} />
+                        <span>Paid Order</span>
                       </span>
                     )}
                   </div>
@@ -201,7 +228,9 @@ export default function CustomerDashboardPage() {
                   {(purchase.customerName || purchase.shippingAddress || purchase.accountName) && (
                     <div className="text-[11px] text-stone-600 pt-1 space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-stone-800">Recipient:</span>
+                        <span className="font-semibold text-stone-800">
+                          {purchase.fulfillmentType === "pickup" ? "Collector:" : "Recipient:"}
+                        </span>
                         <span className="font-medium text-neutral-900">{recipientName}</span>
                         {purchase.customerPhone && (
                           <a
@@ -218,20 +247,34 @@ export default function CustomerDashboardPage() {
                         )}
                       </div>
 
-                      {purchase.shippingAddress && (
-                        <div className="flex items-start gap-1 text-stone-500">
-                          <MapPin size={12} className="text-stone-400 shrink-0 mt-0.5" />
-                          <span className="leading-snug">
-                            {purchase.shippingAddress}
-                            {purchase.city ? `, ${purchase.city}` : ""}
-                            {purchase.postalCode ? ` - ${purchase.postalCode}` : ""}
-                          </span>
+                      {purchase.fulfillmentType === "pickup" ? (
+                        <div className="flex items-start gap-1 text-amber-900/90 font-medium">
+                          <Store size={12} className="text-amber-700 shrink-0 mt-0.5" />
+                          <span>Pickup at Atelier: Road No. 36, Jubilee Hills, Hyderabad</span>
+                        </div>
+                      ) : (
+                        purchase.shippingAddress && (
+                          <div className="flex items-start gap-1 text-stone-500">
+                            <MapPin size={12} className="text-stone-400 shrink-0 mt-0.5" />
+                            <span className="leading-snug">
+                              {purchase.shippingAddress}
+                              {purchase.city ? `, ${purchase.city}` : ""}
+                              {purchase.postalCode ? ` - ${purchase.postalCode}` : ""}
+                            </span>
+                          </div>
+                        )
+                      )}
+
+                      {purchase.isGift && purchase.giftMessage && (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] bg-rose-50 border border-rose-200/80 text-rose-900 rounded-xl px-2.5 py-1 max-w-xl">
+                          <Gift size={12} className="text-rose-600 shrink-0" />
+                          <span className="font-medium">Handcrafted Printed Card Note Included</span>
                         </div>
                       )}
 
                       {purchase.deliveryNotes && (
                         <div className="mt-1.5 inline-flex items-start gap-1.5 text-[11px] bg-amber-50/80 border border-amber-200/60 text-amber-900 rounded-xl px-2.5 py-1 max-w-xl">
-                          <Gift size={12} className="text-amber-700 shrink-0 mt-0.5" />
+                          <FileText size={12} className="text-amber-700 shrink-0 mt-0.5" />
                           <span className="italic leading-tight">
                             &ldquo;{purchase.deliveryNotes}&rdquo;
                           </span>
@@ -370,16 +413,41 @@ export default function CustomerDashboardPage() {
                 </Link>
               </div>
 
-              {/* Recipient & Delivery Information */}
+              {/* Fulfillment & Recipient Information */}
               <div className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-                  Delivery & Recipient
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                    Fulfillment &amp; Recipient
+                  </h4>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {selectedOrder.fulfillmentType === "pickup" ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">
+                        <Store size={10} />
+                        <span>Self Collection</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-800 border border-stone-200">
+                        <Truck size={10} />
+                        <span>Courier Delivery</span>
+                      </span>
+                    )}
+
+                    {selectedOrder.isGift && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+                        <Gift size={10} />
+                        <span>Gift Wrapped + Cute Bag</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="rounded-2xl border border-stone-200/80 p-4 space-y-3 text-xs text-stone-700 bg-white">
                   <div className="flex items-center gap-2.5">
                     <User size={14} className="text-stone-400 shrink-0" />
                     <div>
-                      <span className="text-stone-400 text-[10px] uppercase tracking-wider block">Recipient Name</span>
+                      <span className="text-stone-400 text-[10px] uppercase tracking-wider block">
+                        {selectedOrder.fulfillmentType === "pickup" ? "Collector Name" : "Recipient Name"}
+                      </span>
                       <span className="font-medium text-neutral-900">
                         {selectedOrder.customerName || selectedOrder.accountName || "Patron"}
                       </span>
@@ -416,9 +484,13 @@ export default function CustomerDashboardPage() {
                   <div className="flex items-start gap-2.5 pt-1 border-t border-stone-100">
                     <MapPin size={14} className="text-stone-400 shrink-0 mt-0.5" />
                     <div>
-                      <span className="text-stone-400 text-[10px] uppercase tracking-wider block">Delivery Destination</span>
+                      <span className="text-stone-400 text-[10px] uppercase tracking-wider block">
+                        {selectedOrder.fulfillmentType === "pickup" ? "Collection Atelier Address" : "Delivery Destination"}
+                      </span>
                       <span className="font-medium text-neutral-900 leading-relaxed block">
-                        {selectedOrder.shippingAddress ? (
+                        {selectedOrder.fulfillmentType === "pickup" ? (
+                          "Elvara Floral Atelier, Road No. 36, Jubilee Hills, Hyderabad 500033"
+                        ) : selectedOrder.shippingAddress ? (
                           <>
                             {selectedOrder.shippingAddress}
                             {selectedOrder.city ? `, ${selectedOrder.city}` : ""}
@@ -434,7 +506,7 @@ export default function CustomerDashboardPage() {
                   {selectedOrder.deliveryNotes && (
                     <div className="pt-2 border-t border-stone-100">
                       <span className="text-stone-400 text-[10px] uppercase tracking-wider block mb-1">
-                        Gift Note / Delivery Instructions
+                        Special Instructions / Notes
                       </span>
                       <p className="text-xs text-stone-700 italic bg-stone-50 p-2.5 rounded-xl border border-stone-200/50">
                         &ldquo;{selectedOrder.deliveryNotes}&rdquo;
@@ -443,6 +515,35 @@ export default function CustomerDashboardPage() {
                   )}
                 </div>
               </div>
+
+              {/* Handcrafted Gift Card Note (If Present) */}
+              {selectedOrder.isGift && selectedOrder.giftMessage && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-rose-900 flex items-center gap-1.5">
+                      <Gift size={13} className="text-rose-600" />
+                      <span>Handcrafted Physical Letter &amp; Bag</span>
+                    </h4>
+                    <span className="text-[11px] text-stone-500 font-medium">
+                      Theme: {selectedOrder.giftCardType || "vintage-botanical"}
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl border border-rose-200/60 p-4 bg-rose-50/30 space-y-3">
+                    <p className="text-xs text-rose-900/90 leading-relaxed">
+                      <strong>Packaging:</strong> Signature arrangement gift wrap with satin ribbon nestled in our reusable botanical tote bag.
+                    </p>
+
+                    <GiftCardWriter
+                      selectedCardId={selectedOrder.giftCardType || "vintage-botanical"}
+                      onSelectCardId={() => {}}
+                      message={selectedOrder.giftMessage}
+                      onChangeMessage={() => {}}
+                      readOnly={true}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Payment & Order Reference */}
               <div className="space-y-3">
@@ -464,8 +565,34 @@ export default function CustomerDashboardPage() {
                       </span>
                     </div>
                   )}
+                  <div className="pt-2 border-t border-stone-200/60 space-y-1.5">
+                    <div className="flex justify-between items-center text-stone-500">
+                      <span>Arrangement:</span>
+                      <span className="font-medium text-stone-700">{formatPrice(selectedOrder.price)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-stone-500">
+                      <span>
+                        Fulfillment ({selectedOrder.fulfillmentType === "pickup" ? "Studio Pickup" : "Courier Delivery"}):
+                      </span>
+                      <span className="font-medium text-stone-700">
+                        {selectedOrder.fulfillmentType === "pickup"
+                          ? "FREE (₹0)"
+                          : selectedOrder.deliveryFee
+                          ? `+${formatPrice(selectedOrder.deliveryFee)}`
+                          : "+₹150.00"}
+                      </span>
+                    </div>
+                    {selectedOrder.isGift && (
+                      <div className="flex justify-between items-center text-rose-800">
+                        <span>Gift Bag &amp; Printed Card:</span>
+                        <span className="font-medium">
+                          {selectedOrder.giftFee ? `+${formatPrice(selectedOrder.giftFee)}` : "+₹100.00"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex justify-between items-center pt-2 border-t border-stone-200/60 font-medium">
-                    <span className="text-neutral-900">Total Paid:</span>
+                    <span className="text-neutral-900 font-semibold">Total Paid:</span>
                     <span className="font-serif text-base text-neutral-900 font-semibold">
                       {formatPrice(selectedOrder.amount)}
                     </span>

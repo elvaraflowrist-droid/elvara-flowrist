@@ -99,6 +99,12 @@ export const ordersTable = pgTable("orders", {
   city: text("city"),
   postalCode: text("postal_code"),
   deliveryNotes: text("delivery_notes"),
+  fulfillmentType: text("fulfillment_type").default("delivery").notNull(), // 'delivery' | 'pickup'
+  isGift: boolean("is_gift").default(false).notNull(),
+  giftCardType: text("gift_card_type"), // 'vintage-botanical' | 'minimal-ivory' | 'blush-rose' | 'midnight-noir'
+  giftMessage: text("gift_message"),
+  deliveryFee: numeric("delivery_fee", { precision: 10, scale: 2 }).default("0"),
+  giftFee: numeric("gift_fee", { precision: 10, scale: 2 }).default("0"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).$onUpdate(() => new Date()),
 });

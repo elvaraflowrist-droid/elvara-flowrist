@@ -15,3 +15,31 @@ body {
   background-color: var(--background);
 }
 
+.font-serif {
+  font-family: var(--font-playfair), Georgia, Cambria, serif;
+}
+
+.font-handwriting {
+  font-family: var(--font-caveat), "Brush Script MT", cursive;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-gift-card, #printable-gift-card * {
+    visibility: visible;
+  }
+  #printable-gift-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+
