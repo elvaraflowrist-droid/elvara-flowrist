@@ -15,9 +15,16 @@ export function isConfiguredAdminEmail(email?: string | null): boolean {
   return getAdminEmails().includes(email.toLowerCase().trim());
 }
 
+const getBaseURL = () => {
+  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
+  if (process.env.NEXT_PUBLIC_BETTER_AUTH_URL) return process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+};
+
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET || "development-secret-key-at-least-32-chars-long",
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+  baseURL: getBaseURL(),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -74,8 +81,15 @@ export const auth = betterAuth({
       secure: process.env.NODE_ENV === "production",
     },
   },
-  trustedOrigins: [
-    process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
-    "http://localhost:3000",
-  ],
+  trustedOrigins: Array.from(
+    new Set(
+      [
+        getBaseURL(),
+        process.env.BETTER_AUTH_URL,
+        process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+        process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+        "http://localhost:3000",
+      ].filter(Boolean) as string[]
+    )
+  ),
 });
