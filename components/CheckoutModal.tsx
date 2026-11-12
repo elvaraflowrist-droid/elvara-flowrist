@@ -643,10 +643,17 @@ export default function CheckoutModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t border-stone-100 bg-stone-50/70 px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
-            <ShieldCheck size={14} className="text-emerald-600" />
-            <span>Secure checkout & satisfaction guaranteed</span>
+        <div className="border-t border-stone-100 bg-stone-50/70 px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
+              <ShieldCheck size={14} className="text-emerald-600" />
+              <span>Secure checkout & satisfaction guaranteed</span>
+            </div>
+            {process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.startsWith("rzp_test_") && (
+              <p className="text-[10px] text-amber-700">
+                Sandbox Mode: Use test card <code className="font-mono bg-amber-100/70 px-1 rounded">4012 0000 0000 0002</code> or test UPI/Netbanking.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

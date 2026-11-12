@@ -155,6 +155,11 @@ export function useRazorpay(options?: UseRazorpayOptions) {
           name: options?.brandName || "Elvara Florist",
           description: item.title,
           order_id: data.orderId,
+          prefill: {
+            name: customerInfo?.name || "",
+            email: customerInfo?.email || "",
+            contact: customerInfo?.phone || "",
+          },
           handler: async function (response: any) {
             try {
               const verifyRes = await fetch("/api/razorpay/verify-payment", {
@@ -198,7 +203,14 @@ export function useRazorpay(options?: UseRazorpayOptions) {
         const rzp = new (window as any).Razorpay(rzpOptions);
         rzp.on("payment.failed", function (resp: any) {
           setStatus(itemId, "failed");
-          toast.error(resp?.error?.description || "Payment failed");
+          const errorDesc = resp?.error?.description || "Payment failed";
+          if (errorDesc.toLowerCase().includes("3dsecure") || errorDesc.toLowerCase().includes("3d secure")) {
+            toast.error(
+              "In Razorpay Test Mode, real cards cannot be used. Please use a Razorpay test card (e.g. 4012 0000 0000 0002) or test UPI / Netbanking."
+            );
+          } else {
+            toast.error(errorDesc);
+          }
           resetStatusAfterDelay(itemId);
         });
         rzp.open();

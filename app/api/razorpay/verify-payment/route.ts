@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "@/db/drizzle";
 import { ordersTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { sendOrderNotificationEmails } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
         .update(ordersTable)
         .set({ status: "paid", paymentId: demoPaymentId })
         .where(eq(ordersTable.id, razorpay_order_id));
+
+      // Dispatch notification emails to both customer and owner
+      sendOrderNotificationEmails(razorpay_order_id).catch((err) => {
+        console.error("Error dispatching demo order emails:", err);
+      });
 
       return NextResponse.json({ success: true, isDemo: true });
     }
@@ -48,6 +54,11 @@ export async function POST(req: NextRequest) {
       .update(ordersTable)
       .set({ status: "paid", paymentId: razorpay_payment_id })
       .where(eq(ordersTable.id, razorpay_order_id));
+
+    // Dispatch notification emails to both customer and owner
+    sendOrderNotificationEmails(razorpay_order_id).catch((err) => {
+      console.error("Error dispatching verified order emails:", err);
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
