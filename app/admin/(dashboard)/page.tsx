@@ -319,30 +319,13 @@ export default function AdminPage() {
     }
   };
 
-  // Upload image: prefers local /api/upload (0 credit cards/0 cloud setup) with R2 fallback
+  // Upload image directly to Cloudflare R2
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingImage(true);
     try {
-      // 1. Try local upload first (zero cloud setup / zero credit card required)
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const localRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (localRes.ok) {
-        const data = await localRes.json();
-        setThumbnails((prev) => [...prev, data.url]);
-        toast.success("Image uploaded successfully!");
-        return;
-      }
-
-      // 2. Fallback to Cloudflare R2 if configured
       const { uploadUrl, fileKey } = await getUploadUrlAction(
         file.name,
         file.type || "image/jpeg",
@@ -356,11 +339,11 @@ export default function AdminPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Direct upload to storage failed");
+        throw new Error("Direct upload to Cloudflare R2 storage failed");
       }
 
       setThumbnails((prev) => [...prev, fileKey]);
-      toast.success("Image uploaded to R2 successfully!");
+      toast.success("Image uploaded to Cloudflare R2 successfully!");
     } catch (err: any) {
       toast.error(err?.message || "Image upload failed");
     } finally {
@@ -1371,7 +1354,7 @@ export default function AdminPage() {
                     ) : (
                       <Plus size={13} className="text-stone-600" />
                     )}
-                    <span>{uploadingImage ? "Uploading to local storage..." : "Upload from Device"}</span>
+                    <span>{uploadingImage ? "Uploading to Cloudflare R2..." : "Upload from Device"}</span>
                     <input
                       type="file"
                       accept="image/*"
