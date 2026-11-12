@@ -27,3 +27,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error?.message || "Cron job failed" }, { status: 500 });
   }
 }
+
