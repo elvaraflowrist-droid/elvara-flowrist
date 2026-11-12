@@ -412,6 +412,12 @@ export async function sendOrderNotificationEmails(orderId: string): Promise<void
       return;
     }
 
+    // Strict Security Guard: Final confirmation emails MUST ONLY be sent if the order is successfully paid!
+    if (order.status !== "paid") {
+      console.warn(`[Nodemailer Guard] Aborting email dispatch for order ${orderId}: Order status is '${order.status}', not 'paid'.`);
+      return;
+    }
+
     // 2. Fetch product details
     const [product] = await db
       .select()
