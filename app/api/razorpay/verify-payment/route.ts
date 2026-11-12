@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { db } from "@/db/drizzle";
-import { ordersTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { sendOrderNotificationEmails } from "@/lib/email";
+import { completeOrderPayment } from "@/lib/order-lifecycle";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,16 +15,7 @@ export async function POST(req: NextRequest) {
     // Handle demo payment confirmation
     if (isDemoOrder) {
       const demoPaymentId = razorpay_payment_id || `pay_demo_${Date.now()}`;
-      await db
-        .update(ordersTable)
-        .set({ status: "paid", paymentId: demoPaymentId })
-        .where(eq(ordersTable.id, razorpay_order_id));
-
-      // Dispatch notification emails to both customer and owner
-      sendOrderNotificationEmails(razorpay_order_id).catch((err) => {
-        console.error("Error dispatching demo order emails:", err);
-      });
-
+      await completeOrderPayment(razorpay_order_id, demoPaymentId);
       return NextResponse.json({ success: true, isDemo: true });
     }
 
@@ -50,15 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Payment is authentic and verified -> update order in database
-    await db
-      .update(ordersTable)
-      .set({ status: "paid", paymentId: razorpay_payment_id })
-      .where(eq(ordersTable.id, razorpay_order_id));
-
-    // Dispatch notification emails to both customer and owner
-    sendOrderNotificationEmails(razorpay_order_id).catch((err) => {
-      console.error("Error dispatching verified order emails:", err);
-    });
+    await completeOrderPayment(razorpay_order_id, razorpay_payment_id);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

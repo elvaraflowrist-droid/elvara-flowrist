@@ -6,6 +6,8 @@ import {
   Store,
   Gift,
   CheckCircle2,
+  Clock,
+  AlertCircle,
   MapPin,
   FileText
 } from "lucide-react";
@@ -67,7 +69,20 @@ export default function OrderCard({
               </span>
             )}
 
-            {userIsAdmin && adminViewMode === "all" && (
+            {purchase.status === "failed" ? (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200 shrink-0"
+                title={purchase.failureReason || "Payment failed"}
+              >
+                <AlertCircle size={10} />
+                <span>Payment Failed</span>
+              </span>
+            ) : purchase.status === "pending" ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200 shrink-0">
+                <Clock size={10} />
+                <span>Payment Pending</span>
+              </span>
+            ) : (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
                 <CheckCircle2 size={10} />
                 <span>Paid Order</span>
@@ -108,6 +123,13 @@ export default function OrderCard({
                   </span>
                 )}
               </div>
+
+              {purchase.status === "failed" && purchase.failureReason && (
+                <div className="flex items-start gap-1 text-[11px] text-rose-700 font-medium">
+                  <AlertCircle size={12} className="text-rose-500 shrink-0 mt-0.5" />
+                  <span>Reason: {purchase.failureReason}</span>
+                </div>
+              )}
 
               {purchase.fulfillmentType === "pickup" ? (
                 <div className="flex items-start gap-1 text-amber-900/90 font-medium">

@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { auth, isConfiguredAdminEmail } from "@/lib/auth";
 import { headers } from "next/headers";
+import { expireStalePendingOrders } from "@/lib/order-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ export async function GET() {
     if (!session.user.isAdmin && !isConfiguredAdminEmail(session.user.email)) {
       return NextResponse.json({ success: false, error: "Forbidden: Admin access required" }, { status: 403 });
     }
+
+    // Lazy expiration of stale pending orders (serverless automatic cleanup)
+    await expireStalePendingOrders(30);
 
     // 1. Total products count
     const countResult = await db.select({ count: sql<number>`count(*)` }).from(productsTable);

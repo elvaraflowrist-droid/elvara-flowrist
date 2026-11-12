@@ -1,6 +1,8 @@
 export interface PurchaseItem {
   orderId: string;
   paymentId?: string | null;
+  status?: "pending" | "paid" | "failed" | string | null;
+  failureReason?: string | null;
   amount: string;
   purchasedAt: string | Date;
   postId: string;

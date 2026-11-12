@@ -4,6 +4,7 @@ import { ordersTable, productsTable, user } from "@/db/schema";
 import { auth, isConfiguredAdminEmail } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and, desc } from "drizzle-orm";
+import { expireStalePendingOrders } from "@/lib/order-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -17,26 +18,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Lazy cleanup of timed out pending orders
+    await expireStalePendingOrders(30);
+
     const isAdmin = Boolean(session.user.isAdmin || isConfiguredAdminEmail(session.user.email));
 
     const { searchParams } = new URL(req.url);
     const view = searchParams.get("view"); // 'all' | 'mine'
+    const statusParam = searchParams.get("status"); // 'paid' (default) | 'pending' | 'failed' | 'all'
 
-    // If admin and not explicitly requesting 'mine', fetch all paid customer orders for delivery
+    // If admin and not explicitly requesting 'mine', fetch all orders
     const shouldFetchAll = isAdmin && view !== "mine";
 
-    const whereCondition = shouldFetchAll
-      ? eq(ordersTable.status, "paid")
-      : and(
-          eq(ordersTable.userId, session.user.id),
-          eq(ordersTable.status, "paid")
-        );
+    let statusCondition = eq(ordersTable.status, "paid");
+    if (statusParam === "all") {
+      statusCondition = undefined as any;
+    } else if (statusParam === "pending" || statusParam === "failed" || statusParam === "paid") {
+      statusCondition = eq(ordersTable.status, statusParam);
+    }
 
-    // Join orders (status = 'paid') with products and user to return purchased items & customer info
+    const whereConditions = [];
+    if (!shouldFetchAll) {
+      whereConditions.push(eq(ordersTable.userId, session.user.id));
+    }
+    if (statusCondition) {
+      whereConditions.push(statusCondition);
+    }
+
+    const finalWhere = whereConditions.length > 1
+      ? and(...whereConditions)
+      : whereConditions[0] || undefined;
+
+    // Join orders with products and user
     const purchases = await db
       .select({
         orderId: ordersTable.id,
         paymentId: ordersTable.paymentId,
+        status: ordersTable.status,
+        failureReason: ordersTable.failureReason,
         amount: ordersTable.amount,
         purchasedAt: ordersTable.createdAt,
         postId: productsTable.id,
@@ -68,7 +87,7 @@ export async function GET(req: NextRequest) {
       .from(ordersTable)
       .innerJoin(productsTable, eq(ordersTable.postId, productsTable.id))
       .leftJoin(user, eq(ordersTable.userId, user.id))
-      .where(whereCondition)
+      .where(finalWhere)
       .orderBy(desc(ordersTable.createdAt));
 
     // Normalize customer name and email fallbacks
