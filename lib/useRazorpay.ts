@@ -75,7 +75,13 @@ export function useRazorpay(options?: UseRazorpayOptions) {
       item: { id: string; title: string; price?: string | number | null },
       customerInfo?: CustomerInfo
     ) => {
-      if (!item.price || parseFloat(item.price.toString()) <= 0) return;
+      const basePrice = item.price ? parseFloat(item.price.toString()) : 0;
+      const estimatedTotal =
+        basePrice + (customerInfo?.deliveryFee || 0) + (customerInfo?.giftFee || 0);
+      if (estimatedTotal <= 0) {
+        toast.error("Cannot place an order with a zero total.");
+        return;
+      }
 
       const itemId = item.id;
       setStatus(itemId, "processing");

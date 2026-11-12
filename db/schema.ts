@@ -158,3 +158,20 @@ export const testimonialsTable = pgTable("testimonials", {
 
 export type InsertTestimonial = typeof testimonialsTable.$inferInsert;
 export type SelectTestimonial = typeof testimonialsTable.$inferSelect;
+
+// ==============================================
+// Contact Inquiries Table
+// ==============================================
+
+export const contactInquiriesTable = pgTable("contact_inquiries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  emailSent: boolean("email_sent").default(false).notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+});
+
+export type InsertContactInquiry = typeof contactInquiriesTable.$inferInsert;
+export type SelectContactInquiry = typeof contactInquiriesTable.$inferSelect;

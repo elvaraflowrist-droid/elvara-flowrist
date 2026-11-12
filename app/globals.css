@@ -23,22 +23,53 @@ body {
   font-family: var(--font-caveat), "Brush Script MT", cursive;
 }
 
+@page {
+  margin: 0;
+}
+
 @media print {
+  html, body {
+    height: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
   body * {
     visibility: hidden;
   }
-  #printable-gift-card, #printable-gift-card * {
+  body[data-print-mode="card"] #printable-gift-card,
+  body[data-print-mode="card"] #printable-gift-card * {
     visibility: visible;
   }
-  #printable-gift-card {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  body[data-print-mode="card"] #printable-gift-card {
+    position: fixed;
+    left: 16mm;
+    top: 16mm;
+    width: calc(100% - 32mm);
     margin: 0;
-    padding: 0;
     box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  body[data-print-mode="slip"] #printable-packing-slip,
+  body[data-print-mode="slip"] #printable-packing-slip * {
+    visibility: visible;
+  }
+  body[data-print-mode="slip"] #printable-packing-slip .no-print,
+  body[data-print-mode="slip"] #printable-packing-slip .no-print * {
+    visibility: hidden !important;
+  }
+  body[data-print-mode="slip"] #printable-packing-slip {
+    position: fixed;
+    left: 12mm;
+    top: 12mm;
+    width: calc(100% - 24mm);
+    max-height: none !important;
+    overflow: visible !important;
     border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
   }
 }
 

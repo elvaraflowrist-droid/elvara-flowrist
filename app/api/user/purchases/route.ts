@@ -3,9 +3,11 @@ import { db } from "@/db/drizzle";
 import { ordersTable, productsTable, user } from "@/db/schema";
 import { auth, isConfiguredAdminEmail } from "@/lib/auth";
 import { headers } from "next/headers";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count, SQL } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+
+const DEFAULT_PAGE_SIZE = 6;
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,17 +22,39 @@ export async function GET(req: NextRequest) {
     const isAdmin = Boolean(session.user.isAdmin || isConfiguredAdminEmail(session.user.email));
 
     const { searchParams } = new URL(req.url);
-    const view = searchParams.get("view"); // 'all' | 'mine'
+    const pageParam = Number.parseInt(searchParams.get("page") || "1", 10);
+    const limitParam = Number.parseInt(searchParams.get("limit") || String(DEFAULT_PAGE_SIZE), 10);
+    const filter = searchParams.get("filter") || "all";
 
-    // If admin and not explicitly requesting 'mine', fetch all paid customer orders for delivery
-    const shouldFetchAll = isAdmin && view !== "mine";
+    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+    const limit =
+      Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : DEFAULT_PAGE_SIZE;
 
-    const whereCondition = shouldFetchAll
-      ? eq(ordersTable.status, "paid")
-      : and(
-          eq(ordersTable.userId, session.user.id),
-          eq(ordersTable.status, "paid")
-        );
+    const conditions: SQL[] = [eq(ordersTable.status, "paid")];
+
+    if (!isAdmin) {
+      conditions.push(eq(ordersTable.userId, session.user.id));
+    }
+
+    if (filter === "gift") {
+      conditions.push(eq(ordersTable.isGift, true));
+    } else if (filter === "pickup") {
+      conditions.push(eq(ordersTable.fulfillmentType, "pickup"));
+    } else if (filter === "delivery") {
+      conditions.push(eq(ordersTable.fulfillmentType, "delivery"));
+    }
+
+    const whereCondition = conditions.length === 1 ? conditions[0] : and(...conditions);
+
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(ordersTable)
+      .innerJoin(productsTable, eq(ordersTable.postId, productsTable.id))
+      .where(whereCondition);
+
+    const totalOrders = Number(total || 0);
+    const totalPages = Math.max(1, Math.ceil(totalOrders / limit));
+    const safePage = Math.min(page, totalPages);
 
     // Join orders (status = 'paid') with products and user to return purchased items & customer info
     const purchases = await db
@@ -69,7 +93,9 @@ export async function GET(req: NextRequest) {
       .innerJoin(productsTable, eq(ordersTable.postId, productsTable.id))
       .leftJoin(user, eq(ordersTable.userId, user.id))
       .where(whereCondition)
-      .orderBy(desc(ordersTable.createdAt));
+      .orderBy(desc(ordersTable.createdAt))
+      .limit(limit)
+      .offset((safePage - 1) * limit);
 
     // Normalize customer name and email fallbacks
     const normalizedPurchases = purchases.map((p) => ({
@@ -81,8 +107,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       purchases: normalizedPurchases,
       isAdmin,
-      view: shouldFetchAll ? "all" : "mine",
-      totalOrders: normalizedPurchases.length,
+      page: safePage,
+      limit,
+      totalOrders,
+      totalPages,
     });
   } catch (error: any) {
     console.error("Error fetching purchases:", error);

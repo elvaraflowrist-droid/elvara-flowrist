@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -16,7 +17,13 @@ import {
   Printer
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { formatPrice, formatDate, getActiveThumbnail } from "@/lib/utils";
+import {
+  formatPrice,
+  formatDate,
+  getActiveThumbnail,
+  buildGiftCardPrintTitle,
+  printWithTitle,
+} from "@/lib/utils";
 import GiftCardWriter from "@/components/GiftCardWriter";
 import { PurchaseItem } from "./types";
 
@@ -31,9 +38,20 @@ export default function OrderDetailsModal({
   userIsAdmin = false,
   onClose,
 }: OrderDetailsModalProps) {
-  if (!order) return null;
+  if (!order || typeof document === "undefined") return null;
 
-  return (
+  const recipientName = order.customerName || order.accountName || "Patron";
+
+  const handlePrintSlip = () => {
+    const slipTitle = `${buildGiftCardPrintTitle(
+      recipientName,
+      order.title,
+      order.purchasedAt
+    )}_PackingSlip`;
+    printWithTitle(slipTitle, undefined, "slip");
+  };
+
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Backdrop */}
@@ -42,15 +60,16 @@ export default function OrderDetailsModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-neutral-950/40 backdrop-blur-xs"
+          className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs"
         />
 
         {/* Modal Dialog */}
         <motion.div
+          id="printable-packing-slip"
           initial={{ opacity: 0, scale: 0.96, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 10 }}
-          className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-stone-200 max-h-[90vh] overflow-y-auto z-10 space-y-6"
+          className="relative w-full max-w-xl rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-stone-200 max-h-[90dvh] overflow-y-auto z-10 space-y-6"
         >
           {/* Header */}
           <div className="flex items-start justify-between">
@@ -71,7 +90,7 @@ export default function OrderDetailsModal({
             </div>
             <button
               onClick={onClose}
-              className="rounded-full p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+              className="no-print rounded-full p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
             >
               <X size={18} />
             </button>
@@ -110,25 +129,25 @@ export default function OrderDetailsModal({
 
           {/* Fulfillment & Recipient Information */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+            <div className="flex items-center justify-between gap-2 w-full">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 whitespace-nowrap">
                 Fulfillment &amp; Recipient
               </h4>
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
                 {order.fulfillmentType === "pickup" ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200 whitespace-nowrap">
                     <Store size={10} />
                     <span>Self Collection</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-800 border border-stone-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-800 border border-stone-200 whitespace-nowrap">
                     <Truck size={10} />
                     <span>Courier Delivery</span>
                   </span>
                 )}
 
                 {order.isGift && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200 whitespace-nowrap">
                     <Gift size={10} />
                     <span>Gift Wrapped + Cute Bag</span>
                   </span>
@@ -225,9 +244,6 @@ export default function OrderDetailsModal({
               </div>
 
               <div className="rounded-2xl border border-rose-200/60 p-4 bg-rose-50/30 space-y-3">
-                <p className="text-xs text-rose-900/90 leading-relaxed">
-                  <strong>Packaging:</strong> Signature arrangement gift wrap with satin ribbon nestled in our reusable botanical tote bag.
-                </p>
 
                 <GiftCardWriter
                   selectedCardId={order.giftCardType || "vintage-botanical"}
@@ -235,6 +251,11 @@ export default function OrderDetailsModal({
                   message={order.giftMessage}
                   onChangeMessage={() => {}}
                   readOnly={true}
+                  printTitle={buildGiftCardPrintTitle(
+                    order.customerName || order.accountName || "Patron",
+                    order.title,
+                    order.purchasedAt
+                  )}
                 />
               </div>
             </div>
@@ -296,10 +317,10 @@ export default function OrderDetailsModal({
           </div>
 
           {/* Action buttons */}
-          <div className="pt-2 flex items-center justify-between gap-3">
+          <div className="no-print pt-2 flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={handlePrintSlip}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-stone-200 bg-white text-xs font-medium text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
             >
               <Printer size={13} />
@@ -316,6 +337,7 @@ export default function OrderDetailsModal({
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

@@ -70,3 +70,51 @@ export function formatPrice(price: string | number | null | undefined, currency 
 export function hasPaidPrice(price: string | number | null | undefined): boolean {
   return !!price && parseFloat(price.toString()) > 0;
 }
+
+/** Build a filename-safe print title: recipientName_orderName_YYYY-MM-DD */
+export function buildGiftCardPrintTitle(
+  recipientName: string,
+  orderName: string,
+  purchasedAt: string | Date
+): string {
+  const sanitize = (val: string) =>
+    val
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, "")
+      .replace(/\s+/g, " ");
+  const d = new Date(purchasedAt);
+  const datePart = Number.isNaN(d.getTime()) ? "date" : d.toISOString().slice(0, 10);
+  return `${sanitize(recipientName || "Patron")}_${sanitize(orderName || "Order")}_${datePart}`;
+}
+
+/** Trigger window.print() with a temporary document.title and print mode */
+export function printWithTitle(
+  title: string,
+  onAfterPrint?: () => void,
+  mode: "card" | "slip" = "card"
+): () => void {
+  const previousTitle = document.title;
+  document.title = title;
+  document.body.dataset.printMode = mode;
+
+  const cleanup = () => {
+    document.title = previousTitle;
+    delete document.body.dataset.printMode;
+    window.removeEventListener("afterprint", handleAfterPrint);
+  };
+
+  const handleAfterPrint = () => {
+    cleanup();
+    onAfterPrint?.();
+  };
+
+  window.addEventListener("afterprint", handleAfterPrint);
+  const frameId = requestAnimationFrame(() => {
+    window.print();
+  });
+
+  return () => {
+    cancelAnimationFrame(frameId);
+    cleanup();
+  };
+}

@@ -1,39 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/lib/auth-client";
+import { buildGiftCardPrintTitle, printWithTitle } from "@/lib/utils";
 import AuthDialog from "@/components/AuthDialog";
+import GiftCardWriter from "@/components/GiftCardWriter";
 import OrdersSkeleton from "@/components/dashboard/OrdersSkeleton";
 import OrderCard from "@/components/dashboard/OrderCard";
 import OrderDetailsModal from "@/components/dashboard/OrderDetailsModal";
 import OrdersEmptyState from "@/components/dashboard/OrdersEmptyState";
 import NotSignedInCard from "@/components/dashboard/NotSignedInCard";
-import { PurchaseItem, PurchasesApiResponse } from "@/components/dashboard/types";
+import DashboardFilters from "@/components/dashboard/DashboardFilters";
+import DashboardPagination from "@/components/dashboard/DashboardPagination";
+import {
+  OrderFilter,
+  PurchaseItem,
+  PurchasesApiResponse,
+} from "@/components/dashboard/types";
+
+const ORDERS_PER_PAGE = 6;
 
 export default function CustomerDashboardPage() {
   const { data: session, isPending: sessionLoading } = useSession();
   const [authOpen, setAuthOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PurchaseItem | null>(null);
-  const [adminViewMode, setAdminViewMode] = useState<"all" | "mine">("all");
+  const [printingOrder, setPrintingOrder] = useState<PurchaseItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<OrderFilter>("all");
 
   const isSessionAdmin = Boolean(session?.user?.isAdmin);
 
-  // Fetch purchases from GET /api/user/purchases
   const { data: responseData, isLoading: purchasesLoading } = useQuery<PurchasesApiResponse>({
-    queryKey: ["user-purchases", adminViewMode],
+    queryKey: ["user-purchases", page, filter],
     queryFn: async () => {
-      const res = await fetch(`/api/user/purchases?view=${adminViewMode}`);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(ORDERS_PER_PAGE),
+        filter,
+      });
+      const res = await fetch(`/api/user/purchases?${params.toString()}`);
       if (res.status === 401) {
         throw new Error("Please sign in to view your orders");
+      }
+      if (!res.ok) {
+        throw new Error("Failed to load orders");
       }
       return res.json();
     },
     enabled: !!session?.user,
   });
 
+  // Trigger browser print once the off-screen printable card mounts
+  useEffect(() => {
+    if (!printingOrder) return;
+    const recipientName = printingOrder.customerName || printingOrder.accountName || "Patron";
+    const printTitle = buildGiftCardPrintTitle(
+      recipientName,
+      printingOrder.title,
+      printingOrder.purchasedAt
+    );
+    return printWithTitle(printTitle, () => setPrintingOrder(null));
+  }, [printingOrder]);
+
   const purchases = responseData?.purchases || [];
   const userIsAdmin = responseData?.isAdmin ?? isSessionAdmin;
+  const totalOrders = responseData?.totalOrders ?? purchases.length;
+  const totalPages = responseData?.totalPages ?? 1;
+
+  const handleFilterChange = (nextFilter: OrderFilter) => {
+    setFilter(nextFilter);
+    setPage(1);
+  };
 
   // 1. Session Loading Skeleton State
   if (sessionLoading) {
@@ -65,48 +103,25 @@ export default function CustomerDashboardPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200/80 pb-4 gap-4">
             <div>
               <h2 className="font-serif text-2xl text-neutral-900">
-                {userIsAdmin && adminViewMode === "all"
-                  ? "Customer Delivery Orders"
-                  : "Order History"}
+                {userIsAdmin ? "Customer Delivery Orders" : "Order History"}
               </h2>
               <p className="text-xs text-neutral-500 mt-0.5">
-                {userIsAdmin && adminViewMode === "all"
+                {userIsAdmin
                   ? "Bespoke floral orders placed by customers awaiting handover or dispatch"
                   : "Past floral arrangements, deliveries, and masterclass admissions"}
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              {userIsAdmin && (
-                <div className="flex items-center rounded-full bg-stone-100 p-1 text-xs">
-                  <button
-                    onClick={() => setAdminViewMode("all")}
-                    className={`px-3 py-1 rounded-full font-medium transition-colors cursor-pointer ${
-                      adminViewMode === "all"
-                        ? "bg-white text-neutral-900 shadow-2xs"
-                        : "text-stone-600 hover:text-neutral-900"
-                    }`}
-                  >
-                    All Customer Orders
-                  </button>
-                  <button
-                    onClick={() => setAdminViewMode("mine")}
-                    className={`px-3 py-1 rounded-full font-medium transition-colors cursor-pointer ${
-                      adminViewMode === "mine"
-                        ? "bg-white text-neutral-900 shadow-2xs"
-                        : "text-stone-600 hover:text-neutral-900"
-                    }`}
-                  >
-                    My Personal Orders
-                  </button>
-                </div>
-              )}
-
-              <span className="text-xs font-semibold text-stone-500 bg-stone-100 rounded-full px-3 py-1">
-                {purchases.length} {purchases.length === 1 ? "Order" : "Orders"}
-              </span>
-            </div>
+            <span className="text-xs font-semibold text-stone-500 bg-stone-100 rounded-full px-3 py-1 self-start sm:self-auto">
+              {totalOrders} {totalOrders === 1 ? "Order" : "Orders"}
+            </span>
           </div>
+
+          {/* Filter Pills */}
+          <DashboardFilters
+            activeFilter={filter}
+            onChangeFilter={handleFilterChange}
+          />
 
           {/* Main Orders List / Loading / Empty */}
           {purchasesLoading ? (
@@ -114,7 +129,8 @@ export default function CustomerDashboardPage() {
           ) : purchases.length === 0 ? (
             <OrdersEmptyState
               userIsAdmin={userIsAdmin}
-              adminViewMode={adminViewMode}
+              hasActiveFilter={filter !== "all"}
+              onResetFilter={() => handleFilterChange("all")}
             />
           ) : (
             <div className="space-y-4">
@@ -123,10 +139,17 @@ export default function CustomerDashboardPage() {
                   key={purchase.orderId}
                   purchase={purchase}
                   userIsAdmin={userIsAdmin}
-                  adminViewMode={adminViewMode}
                   onSelect={setSelectedOrder}
+                  onPrintGiftCard={setPrintingOrder}
                 />
               ))}
+
+              <DashboardPagination
+                page={page}
+                totalPages={totalPages}
+                totalOrders={totalOrders}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>
@@ -138,6 +161,22 @@ export default function CustomerDashboardPage() {
         userIsAdmin={userIsAdmin}
         onClose={() => setSelectedOrder(null)}
       />
+
+      {/* Off-screen Printable Gift Card Target for Direct Card Printing */}
+      {printingOrder && !selectedOrder && printingOrder.isGift && printingOrder.giftMessage && (
+        <div
+          aria-hidden="true"
+          className="fixed -left-[9999px] top-0 w-[640px] pointer-events-none print:static print:w-full"
+        >
+          <GiftCardWriter
+            selectedCardId={printingOrder.giftCardType || "vintage-botanical"}
+            onSelectCardId={() => {}}
+            message={printingOrder.giftMessage}
+            onChangeMessage={() => {}}
+            readOnly={true}
+          />
+        </div>
+      )}
     </main>
   );
 }

@@ -28,9 +28,13 @@ export interface PurchaseItem {
   giftFee?: string | null;
 }
 
+export type OrderFilter = "all" | "gift" | "pickup" | "delivery";
+
 export interface PurchasesApiResponse {
   purchases: PurchaseItem[];
   isAdmin?: boolean;
-  view?: "all" | "mine";
+  page?: number;
+  limit?: number;
   totalOrders?: number;
+  totalPages?: number;
 }

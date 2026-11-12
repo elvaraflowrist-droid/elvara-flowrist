@@ -50,7 +50,7 @@ export default function Footer() {
                 <Instagram size={16} />
               </a>
               <a
-                href="mailto:studio@elvaraflorist.com"
+                href="mailto:elvaraflowrist@gmail.com"
                 className="size-9 rounded-full bg-white border border-stone-200 flex items-center justify-center hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all"
                 aria-label="Email Studio"
               >

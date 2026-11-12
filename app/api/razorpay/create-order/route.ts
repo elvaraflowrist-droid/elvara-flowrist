@@ -71,10 +71,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid price for checkout" }, { status: 400 });
     }
 
+    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+    const publicKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim();
+
     const isDemoMode =
-      !process.env.RAZORPAY_KEY_ID ||
-      !process.env.RAZORPAY_KEY_SECRET ||
-      process.env.RAZORPAY_KEY_ID.includes("xxxxxx");
+      !keyId ||
+      !keySecret ||
+      !publicKeyId ||
+      keyId.includes("xxxxxx") ||
+      keySecret.includes("xxxxxx") ||
+      publicKeyId.includes("xxxxxx");
 
     // Demo Mode Checkout: Generates verified orders without needing merchant keys
     if (isDemoMode) {

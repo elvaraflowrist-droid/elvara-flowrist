@@ -17,6 +17,7 @@ import {
 import AtelierRadialBackdrop from "@/components/AtelierRadialBackdrop";
 
 export default function ContactPage() {
+  const currentYear = new Date().getFullYear();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("Custom Wedding & Event Florals");
@@ -122,7 +123,7 @@ export default function ContactPage() {
                   <Phone size={18} className="text-stone-500 mt-0.5 shrink-0" />
                   <div>
                     <strong className="block text-neutral-900 font-medium">Direct Line / WhatsApp</strong>
-                    <a href="tel:+919652722499" className="hover:underline text-neutral-900 font-medium">
+                    <a href="tel:+919652722499" className="hover:underline text-neutral-900">
                       +91 96527 22499
                     </a>
                   </div>
@@ -132,7 +133,12 @@ export default function ContactPage() {
                   <Mail size={18} className="text-stone-500 mt-0.5 shrink-0" />
                   <div>
                     <strong className="block text-neutral-900 font-medium">Electronic Dispatch</strong>
-                    <span>studio@elvaraflorist.com</span>
+                    <a
+                      href="mailto:elvaraflowrist@gmail.com"
+                      className="hover:underline text-neutral-900"
+                    >
+                      elvaraflowrist@gmail.com
+                    </a>
                   </div>
                 </div>
               </div>
@@ -142,7 +148,7 @@ export default function ContactPage() {
             <div className="rounded-3xl bg-amber-50/70 p-6 sm:p-7 border border-amber-200/60 text-xs sm:text-sm text-stone-800 space-y-2">
               <h4 className="font-serif text-base font-semibold text-neutral-900 flex items-center gap-2">
                 <Calendar size={16} className="text-amber-800" />
-                2026/2027 Wedding Inquiries
+                {currentYear}/{currentYear + 1} Wedding Inquiries
               </h4>
               <p className="text-xs text-neutral-600 leading-relaxed font-light">
                 We accept a limited number of full-service floral design commissions each season to ensure uncompromising artistic focus. Please submit your inquiry at least 6 weeks in advance.
