@@ -68,10 +68,12 @@ export async function completeOrderPayment(orderId: string, paymentId: string): 
 
     console.log(`[Order Lifecycle] Order ${orderId} marked as PAID with paymentId ${paymentId}.`);
 
-    // Dispatch notification emails in background
-    sendOrderNotificationEmails(orderId).catch((err) => {
+    // Dispatch notification emails (must be awaited on Vercel Serverless so the Lambda container does not freeze before SMTP dispatch finishes)
+    try {
+      await sendOrderNotificationEmails(orderId);
+    } catch (err) {
       console.error(`[Order Lifecycle] Error dispatching emails for order ${orderId}:`, err);
-    });
+    }
 
     return { success: true, alreadyPaid: false };
   } catch (error) {
