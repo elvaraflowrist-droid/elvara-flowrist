@@ -160,10 +160,11 @@ export async function POST(req: NextRequest) {
       currency: options.currency,
     });
   } catch (error: any) {
-    console.error("Error creating Razorpay order:", error);
+    const errorDetails = error?.error?.description || error?.message || "Failed to create order";
+    console.error("Error creating Razorpay order:", error?.statusCode, error?.error || error);
     return NextResponse.json(
-      { error: error?.message || "Failed to create order" },
-      { status: 500 }
+      { error: errorDetails },
+      { status: error?.statusCode || 500 }
     );
   }
 }

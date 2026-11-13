@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Truck, Clock, Award, Star } from "lucide-react";
 import ProductCard, { ProductItem } from "@/components/ProductCard";
+import FeaturedProductsSection from "@/components/home/FeaturedProductsSection";
 import { getPublicProductsAction, getPublicTestimonialsAction } from "@/app/admin/actions";
 
 export const dynamic = "force-dynamic";
@@ -32,14 +33,14 @@ function FeaturedProductsSkeleton() {
   );
 }
 
-// Async component for fetching and rendering featured products
-async function FeaturedProductsSection() {
-  let products: ProductItem[] = [];
+// Async component for fetching initial products and rendering featured section
+async function FeaturedProductsServer() {
+  let initialProducts: ProductItem[] = [];
 
   try {
-    const dbProducts = await getPublicProductsAction("views");
+    const dbProducts = await getPublicProductsAction("newest");
     if (dbProducts && dbProducts.length > 0) {
-      products = dbProducts.map((p) => ({
+      initialProducts = dbProducts.map((p) => ({
         id: p.id,
         title: p.title,
         description: p.description,
@@ -58,19 +59,7 @@ async function FeaturedProductsSection() {
     console.error("Could not load products from database:", err);
   }
 
-  const displayProducts = products.length >= 4 ? products.slice(0, 4) : [...products];
-
-  if (displayProducts.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {displayProducts.map((product, idx) => (
-        <ProductCard key={product.id} product={product} priority={idx === 0} />
-      ))}
-    </div>
-  );
+  return <FeaturedProductsSection initialProducts={initialProducts} />;
 }
 
 // Skeleton for the Testimonials section
@@ -276,7 +265,7 @@ export default function HomePage() {
           </div>
 
           <Suspense fallback={<FeaturedProductsSkeleton />}>
-            <FeaturedProductsSection />
+            <FeaturedProductsServer />
           </Suspense>
         </div>
       </section>

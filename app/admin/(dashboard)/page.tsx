@@ -27,7 +27,7 @@ import {
   Store
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
-import { formatPrice, formatDate, formatViews, getActiveThumbnail } from "@/lib/utils";
+import { formatPrice, formatDate, formatViews, getActiveThumbnail, getMediaUrl } from "@/lib/utils";
 import { 
   getShopStatsAction, 
   getProductsAction, 
@@ -343,7 +343,7 @@ export default function AdminPage() {
       }
 
       setThumbnails((prev) => [...prev, fileKey]);
-      toast.success("Image uploaded to Cloudflare R2 successfully!");
+      toast.success("Image uploaded successfully!");
     } catch (err: any) {
       toast.error(err?.message || "Image upload failed");
     } finally {
@@ -1354,7 +1354,7 @@ export default function AdminPage() {
                     ) : (
                       <Plus size={13} className="text-stone-600" />
                     )}
-                    <span>{uploadingImage ? "Uploading to Cloudflare R2..." : "Upload from Device"}</span>
+                    <span>{uploadingImage ? "Uploading image..." : "Upload from Device"}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -1402,7 +1402,7 @@ export default function AdminPage() {
                           className="relative group rounded-xl overflow-hidden border border-stone-200 bg-white shadow-2xs aspect-4/3 flex items-center justify-center"
                         >
                           <img
-                            src={t}
+                            src={getMediaUrl(t)}
                             alt={`Preview ${idx + 1}`}
                             className="w-full h-full object-cover"
                             onError={(e) => {
@@ -1415,7 +1415,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => setThumbnails(thumbnails.filter((_, i) => i !== idx))}
-                            className="absolute top-1 right-1 size-5 rounded-full bg-neutral-900/80 hover:bg-neutral-950 text-white flex items-center justify-center transition-colors shadow-xs"
+                            className="absolute top-1 right-1 size-5 rounded-full bg-neutral-900/80 hover:bg-neutral-950 text-white flex items-center justify-center transition-colors shadow-xs cursor-pointer"
                           >
                             <X size={11} />
                           </button>
