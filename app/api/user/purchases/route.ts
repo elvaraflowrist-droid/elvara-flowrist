@@ -3,7 +3,7 @@ import { db } from "@/db/drizzle";
 import { ordersTable, productsTable, user } from "@/db/schema";
 import { auth, isConfiguredAdminEmail } from "@/lib/auth";
 import { headers } from "next/headers";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count, SQL } from "drizzle-orm";
 import { expireStalePendingOrders } from "@/lib/order-lifecycle";
 
 export const dynamic = "force-dynamic";
@@ -26,32 +26,52 @@ export async function GET(req: NextRequest) {
     const isAdmin = Boolean(session.user.isAdmin || isConfiguredAdminEmail(session.user.email));
 
     const { searchParams } = new URL(req.url);
-    const view = searchParams.get("view"); // 'all' | 'mine'
-    const statusParam = searchParams.get("status"); // 'paid' (default) | 'pending' | 'failed' | 'all'
+    const pageParam = Number.parseInt(searchParams.get("page") || "1", 10);
+    const limitParam = Number.parseInt(searchParams.get("limit") || String(DEFAULT_PAGE_SIZE), 10);
+    const filter = searchParams.get("filter") || "all";
+    const statusParam = searchParams.get("status") || "paid"; // 'paid' (default) | 'pending' | 'failed' | 'all'
 
-    // If admin and not explicitly requesting 'mine', fetch all orders
-    const shouldFetchAll = isAdmin && view !== "mine";
+    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+    const limit =
+      Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : DEFAULT_PAGE_SIZE;
 
-    let statusCondition = eq(ordersTable.status, "paid");
-    if (statusParam === "all") {
-      statusCondition = undefined as any;
-    } else if (statusParam === "pending" || statusParam === "failed" || statusParam === "paid") {
-      statusCondition = eq(ordersTable.status, statusParam);
+    const conditions: SQL[] = [];
+
+    // User scope: admin sees all customer orders; regular user sees their own
+    if (!isAdmin) {
+      conditions.push(eq(ordersTable.userId, session.user.id));
     }
 
-    const whereConditions = [];
-    if (!shouldFetchAll) {
-      whereConditions.push(eq(ordersTable.userId, session.user.id));
-    }
-    if (statusCondition) {
-      whereConditions.push(statusCondition);
+    // Status filter
+    if (statusParam === "pending" || statusParam === "failed" || statusParam === "paid") {
+      conditions.push(eq(ordersTable.status, statusParam));
     }
 
-    const finalWhere = whereConditions.length > 1
-      ? and(...whereConditions)
-      : whereConditions[0] || undefined;
+    // Category / Fulfillment filter from dashboard tabs
+    if (filter === "gift") {
+      conditions.push(eq(ordersTable.isGift, true));
+    } else if (filter === "pickup") {
+      conditions.push(eq(ordersTable.fulfillmentType, "pickup"));
+    } else if (filter === "delivery") {
+      conditions.push(eq(ordersTable.fulfillmentType, "delivery"));
+    }
 
-    // Join orders with products and user
+    const whereCondition = conditions.length > 1
+      ? and(...conditions)
+      : conditions[0] || undefined;
+
+    // Total count for pagination
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(ordersTable)
+      .innerJoin(productsTable, eq(ordersTable.postId, productsTable.id))
+      .where(whereCondition);
+
+    const totalOrders = Number(total || 0);
+    const totalPages = Math.max(1, Math.ceil(totalOrders / limit));
+    const safePage = Math.min(page, totalPages);
+
+    // Join orders with products and user to return purchased items & customer info
     const purchases = await db
       .select({
         orderId: ordersTable.id,
@@ -89,8 +109,10 @@ export async function GET(req: NextRequest) {
       .from(ordersTable)
       .innerJoin(productsTable, eq(ordersTable.postId, productsTable.id))
       .leftJoin(user, eq(ordersTable.userId, user.id))
-      .where(finalWhere)
-      .orderBy(desc(ordersTable.createdAt));
+      .where(whereCondition)
+      .orderBy(desc(ordersTable.createdAt))
+      .limit(limit)
+      .offset((safePage - 1) * limit);
 
     // Normalize customer name and email fallbacks
     const normalizedPurchases = purchases.map((p) => ({
