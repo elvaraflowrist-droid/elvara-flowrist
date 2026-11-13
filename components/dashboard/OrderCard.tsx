@@ -5,6 +5,9 @@ import {
   Truck,
   Store,
   Gift,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
   MapPin,
   FileText,
   Printer,
@@ -66,7 +69,27 @@ export default function OrderCard({
             {purchase.isGift && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
                 <Gift size={10} />
-                <span>Gift Card</span>
+                <span>Gift Wrapped + Cute Bag</span>
+              </span>
+            )}
+
+            {purchase.status === "failed" ? (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200 shrink-0"
+                title={purchase.failureReason || "Payment failed"}
+              >
+                <AlertCircle size={10} />
+                <span>Payment Failed</span>
+              </span>
+            ) : purchase.status === "pending" ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200 shrink-0">
+                <Clock size={10} />
+                <span>Payment Pending</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                <CheckCircle2 size={10} />
+                <span>Paid Order</span>
               </span>
             )}
           </div>
@@ -77,16 +100,40 @@ export default function OrderCard({
               {formatDate(purchase.purchasedAt)}
             </span>
             <span>•</span>
-            <span className="font-medium text-neutral-800">{recipientName}</span>
-            {purchase.customerPhone && (
-              <a
-                href={`tel:${purchase.customerPhone}`}
-                className="text-amber-900 hover:underline font-medium"
-              >
-                • {purchase.customerPhone}
-              </a>
-            )}
+            <span className="font-mono text-[11px] text-stone-400">
+              {purchase.orderId.slice(0, 13)}...
+            </span>
           </div>
+
+          {/* Recipient & Delivery Details */}
+          {(purchase.customerName || purchase.shippingAddress || purchase.accountName) && (
+            <div className="text-[11px] text-stone-600 pt-1 space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-semibold text-stone-800">
+                  {purchase.fulfillmentType === "pickup" ? "Collector:" : "Recipient:"}
+                </span>
+                <span className="font-medium text-neutral-900">{recipientName}</span>
+                {purchase.customerPhone && (
+                  <a
+                    href={`tel:${purchase.customerPhone}`}
+                    className="text-amber-900 hover:underline font-medium"
+                  >
+                    • Ph: {purchase.customerPhone}
+                  </a>
+                )}
+                {purchase.customerEmail && (
+                  <span className="text-stone-400 truncate max-w-[200px]">
+                    • {purchase.customerEmail}
+                  </span>
+                )}
+              </div>
+
+              {purchase.status === "failed" && purchase.failureReason && (
+                <div className="flex items-start gap-1 text-[11px] text-rose-700 font-medium">
+                  <AlertCircle size={12} className="text-rose-500 shrink-0 mt-0.5" />
+                  <span>Reason: {purchase.failureReason}</span>
+                </div>
+              )}
 
           {isPickup ? (
             <div className="flex items-center gap-1 text-[11px] text-amber-900/90 font-medium">

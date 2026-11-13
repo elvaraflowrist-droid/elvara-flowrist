@@ -3,7 +3,8 @@ import { db } from "@/db/drizzle";
 import { ordersTable, productsTable, user } from "@/db/schema";
 import { auth, isConfiguredAdminEmail } from "@/lib/auth";
 import { headers } from "next/headers";
-import { eq, and, desc, count, SQL } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
+import { expireStalePendingOrders } from "@/lib/order-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -19,48 +20,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Lazy cleanup of timed out pending orders
+    await expireStalePendingOrders(30);
+
     const isAdmin = Boolean(session.user.isAdmin || isConfiguredAdminEmail(session.user.email));
 
     const { searchParams } = new URL(req.url);
-    const pageParam = Number.parseInt(searchParams.get("page") || "1", 10);
-    const limitParam = Number.parseInt(searchParams.get("limit") || String(DEFAULT_PAGE_SIZE), 10);
-    const filter = searchParams.get("filter") || "all";
+    const view = searchParams.get("view"); // 'all' | 'mine'
+    const statusParam = searchParams.get("status"); // 'paid' (default) | 'pending' | 'failed' | 'all'
 
-    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-    const limit =
-      Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : DEFAULT_PAGE_SIZE;
+    // If admin and not explicitly requesting 'mine', fetch all orders
+    const shouldFetchAll = isAdmin && view !== "mine";
 
-    const conditions: SQL[] = [eq(ordersTable.status, "paid")];
-
-    if (!isAdmin) {
-      conditions.push(eq(ordersTable.userId, session.user.id));
+    let statusCondition = eq(ordersTable.status, "paid");
+    if (statusParam === "all") {
+      statusCondition = undefined as any;
+    } else if (statusParam === "pending" || statusParam === "failed" || statusParam === "paid") {
+      statusCondition = eq(ordersTable.status, statusParam);
     }
 
-    if (filter === "gift") {
-      conditions.push(eq(ordersTable.isGift, true));
-    } else if (filter === "pickup") {
-      conditions.push(eq(ordersTable.fulfillmentType, "pickup"));
-    } else if (filter === "delivery") {
-      conditions.push(eq(ordersTable.fulfillmentType, "delivery"));
+    const whereConditions = [];
+    if (!shouldFetchAll) {
+      whereConditions.push(eq(ordersTable.userId, session.user.id));
+    }
+    if (statusCondition) {
+      whereConditions.push(statusCondition);
     }
 
-    const whereCondition = conditions.length === 1 ? conditions[0] : and(...conditions);
+    const finalWhere = whereConditions.length > 1
+      ? and(...whereConditions)
+      : whereConditions[0] || undefined;
 
-    const [{ total }] = await db
-      .select({ total: count() })
-      .from(ordersTable)
-      .innerJoin(productsTable, eq(ordersTable.postId, productsTable.id))
-      .where(whereCondition);
-
-    const totalOrders = Number(total || 0);
-    const totalPages = Math.max(1, Math.ceil(totalOrders / limit));
-    const safePage = Math.min(page, totalPages);
-
-    // Join orders (status = 'paid') with products and user to return purchased items & customer info
+    // Join orders with products and user
     const purchases = await db
       .select({
         orderId: ordersTable.id,
         paymentId: ordersTable.paymentId,
+        status: ordersTable.status,
+        failureReason: ordersTable.failureReason,
         amount: ordersTable.amount,
         purchasedAt: ordersTable.createdAt,
         postId: productsTable.id,
@@ -92,10 +89,8 @@ export async function GET(req: NextRequest) {
       .from(ordersTable)
       .innerJoin(productsTable, eq(ordersTable.postId, productsTable.id))
       .leftJoin(user, eq(ordersTable.userId, user.id))
-      .where(whereCondition)
-      .orderBy(desc(ordersTable.createdAt))
-      .limit(limit)
-      .offset((safePage - 1) * limit);
+      .where(finalWhere)
+      .orderBy(desc(ordersTable.createdAt));
 
     // Normalize customer name and email fallbacks
     const normalizedPurchases = purchases.map((p) => ({

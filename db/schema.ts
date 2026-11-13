@@ -90,8 +90,9 @@ export const ordersTable = pgTable("orders", {
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   postId: uuid("post_id").notNull().references(() => productsTable.id, { onDelete: "cascade" }),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").default("created").notNull(), // 'created' | 'paid' | 'failed'
+  status: text("status").default("pending").notNull(), // 'pending' | 'paid' | 'failed'
   paymentId: text("payment_id"), // Razorpay payment ID (e.g. pay_P123456)
+  failureReason: text("failure_reason"), // Failure explanation (e.g. timeout, card declined, user cancelled)
   customerName: text("customer_name"),
   customerEmail: text("customer_email"),
   customerPhone: text("customer_phone"),

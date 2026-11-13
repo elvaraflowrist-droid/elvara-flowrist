@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   ExternalLink,
   CheckCircle2,
+  Clock,
+  AlertCircle,
   X,
   User,
   Phone,
@@ -74,13 +76,29 @@ export default function OrderDetailsModal({
           {/* Header */}
           <div className="flex items-start justify-between">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-medium mb-2">
-                <CheckCircle2 size={12} />
-                <span>Payment Completed</span>
-                {userIsAdmin && (
-                  <span className="text-emerald-800 font-semibold">• Ready for Delivery</span>
-                )}
-              </div>
+              {order.status === "failed" ? (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium mb-2">
+                  <AlertCircle size={12} />
+                  <span>Payment Failed</span>
+                  {order.failureReason && (
+                    <span className="text-rose-900 font-semibold">• {order.failureReason}</span>
+                  )}
+                </div>
+              ) : order.status === "pending" ? (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium mb-2">
+                  <Clock size={12} />
+                  <span>Payment Pending</span>
+                  <span className="text-amber-900 font-semibold">• Awaiting Confirmation</span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-medium mb-2">
+                  <CheckCircle2 size={12} />
+                  <span>Payment Completed</span>
+                  {userIsAdmin && (
+                    <span className="text-emerald-800 font-semibold">• Ready for Delivery</span>
+                  )}
+                </div>
+              )}
               <h3 className="font-serif text-2xl text-neutral-900">
                 {userIsAdmin ? "Order & Delivery Slip" : "Order Details"}
               </h3>

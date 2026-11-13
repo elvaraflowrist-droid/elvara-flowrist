@@ -154,6 +154,8 @@ export function useRazorpay(options?: UseRazorpayOptions) {
           return;
         }
 
+        let paymentCompleted = false;
+
         const rzpOptions = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           amount: data.amount,
@@ -161,7 +163,13 @@ export function useRazorpay(options?: UseRazorpayOptions) {
           name: options?.brandName || "Elvara Florist",
           description: item.title,
           order_id: data.orderId,
+          prefill: {
+            name: customerInfo?.name || "",
+            email: customerInfo?.email || "",
+            contact: customerInfo?.phone || "",
+          },
           handler: async function (response: any) {
+            paymentCompleted = true;
             try {
               const verifyRes = await fetch("/api/razorpay/verify-payment", {
                 method: "POST",
@@ -194,6 +202,17 @@ export function useRazorpay(options?: UseRazorpayOptions) {
           modal: {
             ondismiss: function () {
               setStatus(itemId, "idle");
+              if (!paymentCompleted) {
+                // Report cancellation so order is marked as failed rather than remaining indefinitely pending
+                fetch("/api/razorpay/fail-order", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    orderId: data.orderId,
+                    reason: "Checkout modal dismissed before payment completion",
+                  }),
+                }).catch(console.error);
+              }
             },
           },
           theme: {
@@ -204,7 +223,27 @@ export function useRazorpay(options?: UseRazorpayOptions) {
         const rzp = new (window as any).Razorpay(rzpOptions);
         rzp.on("payment.failed", function (resp: any) {
           setStatus(itemId, "failed");
-          toast.error(resp?.error?.description || "Payment failed");
+          const errorDesc = resp?.error?.description || "Payment failed";
+
+          // Notify server immediately to record the decline reason
+          fetch("/api/razorpay/fail-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: data.orderId,
+              reason: errorDesc,
+              code: resp?.error?.code,
+              description: resp?.error?.description,
+            }),
+          }).catch(console.error);
+
+          if (errorDesc.toLowerCase().includes("3dsecure") || errorDesc.toLowerCase().includes("3d secure")) {
+            toast.error(
+              "In Razorpay Test Mode, real cards cannot be used. Please use a Razorpay test card (e.g. 4012 0000 0000 0002) or test UPI / Netbanking."
+            );
+          } else {
+            toast.error(errorDesc);
+          }
           resetStatusAfterDelay(itemId);
         });
         rzp.open();
