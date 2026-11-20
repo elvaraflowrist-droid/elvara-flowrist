@@ -1,44 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, SlidersHorizontal, Loader2, Filter } from "lucide-react";
+import { Search, SlidersHorizontal, Filter } from "lucide-react";
 import ProductCard, { ProductItem } from "@/components/ProductCard";
 import AtelierRadialBackdrop from "@/components/AtelierRadialBackdrop";
+import PaginationControls from "@/components/PaginationControls";
+import { getDynamicCategories, getDynamicTags } from "@/lib/catalog";
 
-const CATEGORIES = [
-  { id: "all", label: "All Offerings" },
-  { id: "bouquets", label: "Hand-Tied Bouquets" },
-  { id: "collections", label: "Vessel Arrangements" },
-  { id: "gifts", label: "Botanical Gifts" },
-];
-
-const POPULAR_TAGS = [
-  "luxury",
-  "roses",
-  "peonies",
-  "beautiful",
-  "wedding",
-  "dried",
-  "sculptural",
-  "orchids",
-];
+const ITEMS_PER_PAGE = 12;
 
 export default function CollectionsPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState("views");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: products = [], isLoading } = useQuery<ProductItem[]>({
-    queryKey: ["products", { sort: sortOption, type: selectedCategory, tag: selectedTag }],
+  const { data: allProducts = [], isLoading } = useQuery<ProductItem[]>({
+    queryKey: ["collections-products", { sort: sortOption }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (sortOption) params.set("sort", sortOption);
-      if (selectedCategory && selectedCategory !== "all") {
-        params.set("type", selectedCategory);
-      }
-      if (selectedTag) params.set("tags", selectedTag);
+      params.set("limit", "200");
 
       const res = await fetch(`/api/products?${params.toString()}`);
       const data = await res.json();
@@ -48,17 +32,68 @@ export default function CollectionsPage() {
     },
   });
 
-  // Client-side search filter
-  const filteredProducts = products.filter((p) => {
-    const matchesCategory =
-      selectedCategory === "all" || p.assetType === selectedCategory;
-    const matchesTag = !selectedTag || p.tags?.includes(selectedTag);
-    const matchesSearch =
-      !searchQuery.trim() ||
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesTag && matchesSearch;
-  });
+  // Dynamic categories derived from the offerings created
+  const categories = useMemo(() => getDynamicCategories(allProducts), [allProducts]);
+
+  // Dynamic tags derived from the offerings created (relevant to selected category)
+  const dynamicTags = useMemo(
+    () => getDynamicTags(allProducts, selectedCategory),
+    [allProducts, selectedCategory]
+  );
+
+  // If the active category is no longer present in existing offerings, reset to 'all'
+  useEffect(() => {
+    if (selectedCategory !== "all" && !categories.some((c) => c.id === selectedCategory)) {
+      setSelectedCategory("all");
+    }
+  }, [categories, selectedCategory]);
+
+  // If the active tag is no longer present in available tags, reset to null
+  useEffect(() => {
+    if (selectedTag && !dynamicTags.some((t) => t.tag === selectedTag)) {
+      setSelectedTag(null);
+    }
+  }, [dynamicTags, selectedTag]);
+
+  // Reset pagination to page 1 whenever search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedTag, searchQuery, sortOption]);
+
+  // Client-side filtering based on dynamic categories, tags, and search text
+  const filteredProducts = useMemo(() => {
+    return allProducts.filter((p) => {
+      const matchesCategory =
+        selectedCategory === "all" ||
+        p.assetType?.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
+      const matchesTag =
+        !selectedTag ||
+        (Array.isArray(p.tags) &&
+          p.tags.some(
+            (t) => t?.toLowerCase().trim().replace(/^#+/, "") === selectedTag
+          ));
+      const matchesSearch =
+        !searchQuery.trim() ||
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesTag && matchesSearch;
+    });
+  }, [allProducts, selectedCategory, selectedTag, searchQuery]);
+
+  // Paginated slice for current page
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    const element = document.getElementById("atelier-catalog-grid");
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   return (
     <main className="min-h-screen pb-20 pt-8">
@@ -85,17 +120,17 @@ export default function CollectionsPage() {
           </p>
         </AtelierRadialBackdrop>
 
-        {/* Search & Filter Bar */}
+        {/* Dynamic Search & Filter Bar */}
         <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Category Tabs */}
+          {/* Dynamic Category Tabs based on created offerings */}
           <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-none">
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const isActive = selectedCategory === cat.id;
               return (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`rounded-full px-4 py-2 text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                  className={`rounded-full px-4 py-2 text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${
                     isActive
                       ? "bg-neutral-900 text-white shadow-xs"
                       : "bg-white border border-stone-200 text-neutral-700 hover:border-neutral-400 hover:text-neutral-950"
@@ -138,39 +173,44 @@ export default function CollectionsPage() {
           </div>
         </div>
 
-        {/* Tag Filters */}
-        <div className="mt-4 flex items-center gap-2 flex-wrap text-xs">
-          <span className="text-stone-400 flex items-center gap-1 font-medium mr-1">
-            <Filter size={11} /> Filter:
-          </span>
-          <button
-            onClick={() => setSelectedTag(null)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-              selectedTag === null
-                ? "bg-stone-200 text-stone-900"
-                : "text-stone-600 hover:text-stone-950"
-            }`}
-          >
-            All tags
-          </button>
-          {POPULAR_TAGS.map((tag) => (
+        {/* Dynamic Tag Filters based on created offerings */}
+        {dynamicTags.length > 0 && (
+          <div className="mt-4 flex items-center gap-2 flex-wrap text-xs">
+            <span className="text-stone-400 flex items-center gap-1 font-medium mr-1">
+              <Filter size={11} /> Filter:
+            </span>
             <button
-              key={tag}
-              onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                selectedTag === tag
-                  ? "bg-amber-100 text-amber-900 border border-amber-300"
-                  : "bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-neutral-900"
+              onClick={() => setSelectedTag(null)}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
+                selectedTag === null
+                  ? "bg-stone-200 text-stone-900"
+                  : "text-stone-600 hover:text-stone-950"
               }`}
             >
-              #{tag}
+              All tags
             </button>
-          ))}
-        </div>
+            {dynamicTags.map(({ tag }) => {
+              const isTagActive = selectedTag === tag;
+              return (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(isTagActive ? null : tag)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
+                    isTagActive
+                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : "bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-neutral-900"
+                  }`}
+                >
+                  #{tag}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Product Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Product Grid & Pagination */}
+      <div id="atelier-catalog-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -178,7 +218,7 @@ export default function CollectionsPage() {
                 key={i}
                 className="rounded-3xl bg-white border border-stone-200/80 overflow-hidden shadow-xs"
               >
-                <div className="aspect-[4/5] bg-stone-200/80" />
+                <div className="aspect-4/5 bg-stone-200/80 w-full" />
                 <div className="p-5 space-y-3">
                   <div className="h-4.5 w-3/4 bg-stone-200/80 rounded-md" />
                   <div className="h-3 w-1/2 bg-stone-100 rounded-md" />
@@ -191,28 +231,38 @@ export default function CollectionsPage() {
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="py-20 text-center rounded-3xl border border-dashed border-stone-300 bg-white/50 p-8 max-w-lg mx-auto">
-            <p className="font-serif text-xl text-neutral-800">No arrangements found</p>
-            <p className="mt-2 text-xs text-neutral-500">
-              Try adjusting your search criteria, category selection, or tag filters.
-            </p>
+          <div className="py-20 text-center text-neutral-500">
+            <p className="font-serif text-xl text-neutral-900">No offerings match your filter</p>
+            <p className="text-xs text-stone-500 mt-1">Try clearing your search query or selecting &quot;All tags&quot;.</p>
             <button
               onClick={() => {
                 setSelectedCategory("all");
                 setSelectedTag(null);
                 setSearchQuery("");
               }}
-              className="mt-4 inline-flex items-center rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white hover:bg-neutral-800 transition-colors"
+              className="mt-4 inline-flex items-center rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white hover:bg-neutral-800 transition-colors cursor-pointer"
             >
               Reset all filters
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {paginatedProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredProducts.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={handlePageChange}
+              itemLabel="offering"
+            />
+          </>
         )}
       </div>
     </main>

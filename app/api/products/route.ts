@@ -1,7 +1,7 @@
 import { db } from "@/db/drizzle";
 import { productsTable } from "@/db/schema";
 import { PRODUCT_PUBLIC_FIELDS, getOrderByClause } from "@/db/queries";
-import { arrayContains, eq, and } from "drizzle-orm";
+import { arrayContains, eq, and, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -115,4 +115,48 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { auth, isConfiguredAdminEmail } = await import("@/lib/auth");
+    const { headers } = await import("next/headers");
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized: Please sign in" }, { status: 401 });
+    }
+
+    if (!session.user.isAdmin && !isConfiguredAdminEmail(session.user.email)) {
+      return NextResponse.json({ success: false, error: "Unauthorized: Admin privileges required" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const ids = body?.ids;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ success: false, error: "No product IDs provided" }, { status: 400 });
+    }
+
+    await db.delete(productsTable).where(inArray(productsTable.id, ids));
+
+    revalidatePath("/");
+    revalidatePath("/collections");
+    revalidatePath("/bouquets");
+    revalidatePath("/admin");
+
+    return NextResponse.json({
+      success: true,
+      message: `Successfully deleted ${ids.length} product(s)`,
+      count: ids.length,
+    });
+  } catch (error: any) {
+    console.error("Failed to bulk delete products:", error);
+    return NextResponse.json(
+      { success: false, error: error?.message || "Failed to bulk delete products" },
+      { status: 500 }
+    );
+  }
+}
+
 

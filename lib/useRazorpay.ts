@@ -24,6 +24,7 @@ export interface CustomerInfo {
 
 interface UseRazorpayOptions {
   onSuccess?: () => void;
+  onRequireAuth?: () => void;
   brandName?: string;
   themeColor?: string;
 }
@@ -110,7 +111,11 @@ export function useRazorpay(options?: UseRazorpayOptions) {
 
         if (!res.ok) {
           if (res.status === 401 || data.requiresAuth) {
-            toast.error("Please sign in first to place your order.");
+            if (options?.onRequireAuth) {
+              options.onRequireAuth();
+            } else {
+              toast.error("Please sign in first to place your order.");
+            }
           } else {
             toast.error(data.error || "Failed to initialize order");
           }

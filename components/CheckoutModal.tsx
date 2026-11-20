@@ -14,6 +14,7 @@ import FulfillmentStep from "@/components/checkout/FulfillmentStep";
 import ContactStep from "@/components/checkout/ContactStep";
 import GiftStep from "@/components/checkout/GiftStep";
 import OrderPreviewStep from "@/components/checkout/OrderPreviewStep";
+import AuthDialog from "@/components/AuthDialog";
 import {
   CheckoutProduct,
   CheckoutStage,
@@ -41,6 +42,7 @@ export default function CheckoutModal({
 }: CheckoutModalProps) {
   const { data: session } = useSession();
 
+  const [authOpen, setAuthOpen] = useState(false);
   const [stage, setStage] = useState<CheckoutStage>(1);
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
   const [fulfillmentType, setFulfillmentType] = useState<"delivery" | "pickup">("delivery");
@@ -176,9 +178,7 @@ export default function CheckoutModal({
     }
   };
 
-  const handleConfirm = () => {
-    if (!validateContactStage() || !validateGiftStage()) return;
-
+  const executePurchase = () => {
     const compiledGiftMessage = gift.isGift
       ? `${gift.salutation.trim()}\n\n${gift.message.trim()}\n\n${gift.signoff.trim()}`.trim()
       : undefined;
@@ -202,8 +202,27 @@ export default function CheckoutModal({
     });
   };
 
+  const handleConfirm = () => {
+    if (!validateContactStage() || !validateGiftStage()) return;
+
+    // Directly show signin/signup modal if user is not signed in
+    if (!session?.user) {
+      setAuthOpen(true);
+      return;
+    }
+
+    executePurchase();
+  };
+
+  const handleAuthSuccess = () => {
+    setAuthOpen(false);
+    toast.success("Signed in successfully! Continuing with your order...");
+    executePurchase();
+  };
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
         className="relative w-full max-w-2xl max-h-[92dvh] flex flex-col rounded-3xl bg-white shadow-2xl border border-stone-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -366,7 +385,18 @@ export default function CheckoutModal({
           </div>
         </div>
       </div>
-    </div>,
-    document.body
-  );
+    </div>
+
+    {/* Seamless Sign-In / Sign-Up Dialog for Unauthenticated Checkout */}
+    <AuthDialog
+      isOpen={authOpen}
+      onClose={() => setAuthOpen(false)}
+      onSuccess={handleAuthSuccess}
+      initialEmail={contact.email}
+      initialName={contact.name}
+      defaultMode="signin"
+    />
+  </>,
+  document.body
+);
 }

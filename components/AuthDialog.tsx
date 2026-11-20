@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { signIn, signUp } from "@/lib/auth-client";
@@ -11,19 +11,33 @@ interface AuthDialogProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: "signin" | "signup";
+  onSuccess?: () => void;
+  initialEmail?: string;
+  initialName?: string;
 }
 
 export default function AuthDialog({
   isOpen,
   onClose,
   defaultMode = "signin",
+  onSuccess,
+  initialEmail = "",
+  initialName = "",
 }: AuthDialogProps) {
   const [mode, setMode] = useState<"signin" | "signup">(defaultMode);
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialEmail) setEmail(initialEmail);
+      if (initialName) setName(initialName);
+      setMode(defaultMode);
+    }
+  }, [isOpen, initialEmail, initialName, defaultMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +66,10 @@ export default function AuthDialog({
             onSuccess: async () => {
               setLoading(false);
               onClose();
+              if (onSuccess) {
+                onSuccess();
+                return;
+              }
               try {
                 const status = await checkAdminStatusAction();
                 if (status?.isAdmin) {
@@ -81,6 +99,10 @@ export default function AuthDialog({
             onSuccess: async () => {
               setLoading(false);
               onClose();
+              if (onSuccess) {
+                onSuccess();
+                return;
+              }
               try {
                 const status = await checkAdminStatusAction();
                 if (status?.isAdmin) {
@@ -110,7 +132,7 @@ export default function AuthDialog({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
