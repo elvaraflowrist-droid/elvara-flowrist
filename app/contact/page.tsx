@@ -134,10 +134,10 @@ export default function ContactPage() {
                   <div>
                     <strong className="block text-neutral-900 font-medium">Electronic Dispatch</strong>
                     <a
-                      href="mailto:elvaraflowrist@gmail.com"
+                      href="mailto:elvaraflowers@gmail.com"
                       className="hover:underline text-neutral-900"
                     >
-                      elvaraflowrist@gmail.com
+                      elvaraflowers@gmail.com
                     </a>
                   </div>
                 </div>

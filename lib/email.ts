@@ -46,7 +46,7 @@ function createTransporter() {
  */
 export async function sendEmail({ to, subject, html, replyTo }: EmailPayload): Promise<{ success: boolean; id?: string; error?: string }> {
   const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const defaultFrom = user ? `Elvara Floral Atelier <${user}>` : "Elvara Floral Atelier <orders@elvaraflorist.com>";
+  const defaultFrom = "Elvara Floral Atelier <elvaraflowers@gmail.com>";
   const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || defaultFrom;
 
   const transporter = createTransporter();
@@ -68,7 +68,7 @@ export async function sendEmail({ to, subject, html, replyTo }: EmailPayload): P
       to,
       subject,
       html,
-      replyTo,
+      replyTo: replyTo || "elvaraflowers@gmail.com",
     });
 
     console.log(`[Nodemailer] Message sent to ${to}: ${info.messageId}`);
@@ -239,7 +239,7 @@ function buildCustomerReceiptHtml(params: {
 
               <!-- Assistance Note -->
               <p style="margin: 0; font-size: 12px; color: #78716c; line-height: 1.6;">
-                Have questions about your order or need custom scheduling? Reply directly to this email or reach us at <a href="mailto:studio@elvaraflorist.com" style="color: #1c1917; text-decoration: underline;">studio@elvaraflorist.com</a>.
+                Have questions about your order or need custom scheduling? Reply directly to this email or reach us at <a href="mailto:elvaraflowers@gmail.com" style="color: #1c1917; text-decoration: underline;">elvaraflowers@gmail.com</a>.
               </p>
             </td>
           </tr>

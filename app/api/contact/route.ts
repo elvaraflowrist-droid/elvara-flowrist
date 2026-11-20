@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       .values({ name, email, subject, message, emailSent: false })
       .returning({ id: contactInquiriesTable.id });
 
-    // 2. Attempt email notification to elvaraflowrist@gmail.com
+    // 2. Attempt email notification to atelier owner
     let emailSent = false;
     try {
       emailSent = await sendContactInquiryEmail({ name, email, subject, message });
